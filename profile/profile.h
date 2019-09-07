@@ -13,6 +13,8 @@ public:
     static std::chrono::nanoseconds filter_pseudos;
     static std::chrono::nanoseconds filter_legal_check;
     static std::chrono::nanoseconds parse_san_fast;
+    static std::chrono::nanoseconds node_new;
+    static std::chrono::nanoseconds node_regexp;
 
 };
 

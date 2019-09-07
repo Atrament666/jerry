@@ -14,7 +14,8 @@ QT       -= gui
 TARGET = Jerry
 CONFIG   -= console
 CONFIG   += app_bundle
-CONFIG   += c++14
+CONFIG   += c++17
+CONFIG += object_parallel_to_source
 
 
 
@@ -26,12 +27,18 @@ SOURCES += main.cpp \
     chess/move.cpp \
     chess/game_node.cpp \
     chess/game.cpp \
+    chess/move_cache.cpp \
     chess/pgn_reader.cpp \
     chess/pgn_printer.cpp \
     dialogs/tab_board_style.cpp \
     dialogs/tab_font_style.cpp \
     model/font_style.cpp \
     profile/profile.cpp \
+    scid/game.cpp \
+    scid/misc.cpp \
+    scid/position.cpp \
+    scid/stored.cpp \
+    scid/textbuf.cpp \
     uci/uci_controller.cpp \
     uci/uci_worker.cpp \
     uci/engine_info.cpp \
@@ -85,12 +92,30 @@ HEADERS += \
     chess/move.h \
     chess/game_node.h \
     chess/game.h \
+    chess/move_cache.h \
     chess/pgn_reader.h \
     chess/pgn_printer.h \
     dialogs/tab_board_style.h \
     dialogs/tab_font_style.h \
     model/font_style.h \
     profile/profile.h \
+    scid/bytebuf.h \
+    scid/common.h \
+    scid/date.h \
+    scid/dstring.h \
+    scid/error.h \
+    scid/fullmove.h \
+    scid/game.h \
+    scid/matsig.h \
+    scid/misc.h \
+    scid/movelist.h \
+    scid/naglatex.h \
+    scid/nagtext.h \
+    scid/namebase.h \
+    scid/position.h \
+    scid/sqmove.h \
+    scid/stored.h \
+    scid/textbuf.h \
     uci/uci_worker.h \
     uci/uci_controller.h \
     uci/engine_info.h \
@@ -144,3 +169,10 @@ HEADERS += \
 
 RESOURCES += \
     resources.qrc
+
+DISTFILES += \
+    scid/universalchardet/Big5Freq.tab \
+    scid/universalchardet/EUCKRFreq.tab \
+    scid/universalchardet/EUCTWFreq.tab \
+    scid/universalchardet/GB2312Freq.tab \
+    scid/universalchardet/JISFreq.tab

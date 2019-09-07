@@ -307,6 +307,8 @@ const int RANDOM_TURN = 780;
 
 typedef std::bitset<sizeof(uint8_t)*8> IntBits;
 
+MoveCache Board::pseudosCache;
+
 Board::Board() {
 
     this->turn = WHITE;
@@ -1495,11 +1497,12 @@ QVector<Move> Board::pseudo_legal_moves_from_pt(int from_square, uint8_t to_squa
 }
 
 // no castle moves
-QVector<Move> Board::pseudo_legal_moves_san_parse(uint8_t to_square,
+void Board::pseudo_legal_moves_san_parse(uint8_t to_square,
                                                uint8_t piece_type,
                                                bool is_capture
                                                ) {
-     QVector<Move> moves;
+    // QVector<Move> moves;
+    pseudosCache.reset();
 
     for(int i=21;i<99;i++) {
         if(!(this->board[i] == 0xFF)) {
@@ -1528,12 +1531,12 @@ QVector<Move> Board::pseudo_legal_moves_san_parse(uint8_t to_square,
                                 (!this->is_empty(idx) && color==WHITE && !this->is_white_at(idx))) {
                             // if it's a promotion square, add four moves
                             if((color==WHITE && (idx / 10 == 9)) || (color==BLACK && (idx / 10 == 2))) {
-                                moves.append(Move(i,idx,QUEEN));
-                                moves.append(Move(i,idx,ROOK));
-                                moves.append(Move(i,idx,BISHOP));
-                                moves.append(Move(i,idx,KNIGHT));
+                                pseudosCache.addMove(i,idx,QUEEN);
+                                pseudosCache.addMove(i,idx,ROOK);
+                                pseudosCache.addMove(i,idx,BISHOP);
+                                pseudosCache.addMove(i,idx,KNIGHT);
                             } else {
-                                moves.append(Move(i,idx));
+                                pseudosCache.addMove(i,idx);
                             }
                         }
                     }
@@ -1546,41 +1549,37 @@ QVector<Move> Board::pseudo_legal_moves_san_parse(uint8_t to_square,
                         // means we have a white/black pawn in inital position, direct square
                         // in front is empty => allow to move two forward
                         if(this->is_empty(idx_1up) && this->is_empty(idx_2up)) {
-                            moves.append(Move(i,idx_2up));
+                            pseudosCache.addMove(i,idx_2up);
                         }
                     }
                 }
                 if(idx_1up == to_square && !this->is_offside(idx_1up) && this->is_empty(idx_1up)) {
                     // if it's a promotion square, add four moves
                     if((color==WHITE && (idx_1up / 10 == 9)) || (color==BLACK && (idx_1up / 10 == 2))) {
-                        moves.append(Move(i,idx_1up,QUEEN));
-                        moves.append(Move(i,idx_1up,ROOK));
-                        moves.append(Move(i,idx_1up,BISHOP));
-                        moves.append(Move(i,idx_1up,KNIGHT));
+                        pseudosCache.addMove(i,idx_1up,QUEEN);
+                        pseudosCache.addMove(i,idx_1up,ROOK);
+                        pseudosCache.addMove(i,idx_1up,BISHOP);
+                        pseudosCache.addMove(i,idx_1up,KNIGHT);
                     } else {
-                        moves.append(Move(i,idx_1up));
+                        pseudosCache.addMove(i,idx_1up);
                     }
                 }
 
                 // finally, potential en-passent capture is handled
                 // left up
                 if(color == WHITE && (this->en_passent_target - i)==9) {
-                    Move m = (Move(i,this->en_passent_target));
-                    moves.append(m);
+                    pseudosCache.addMove(i,this->en_passent_target);
                 }
                 // right up
                 if(color == WHITE && (this->en_passent_target - i)==11) {
-                    Move m = (Move(i,this->en_passent_target));
-                    moves.append(m);
+                    pseudosCache.addMove(i,this->en_passent_target);
                 }
                 // left down
                 if(color == BLACK && (this->en_passent_target - i)==-9) {
-                    Move m = (Move(i,this->en_passent_target));
-                    moves.append(m);
+                    pseudosCache.addMove(i,this->en_passent_target);
                 }
                 if(color == BLACK && (this->en_passent_target - i)==-11) {
-                    Move m = (Move(i,this->en_passent_target));
-                    moves.append(m);
+                    pseudosCache.addMove(i,this->en_passent_target);
                 }
             }
             // handle case of knight
@@ -1596,7 +1595,7 @@ QVector<Move> Board::pseudo_legal_moves_san_parse(uint8_t to_square,
                     if(idx == to_square && !this->is_offside(idx)) {
                         if(this->is_empty(idx) ||
                                 (this->piece_color(idx) != color)) {
-                            moves.append(Move(i,idx));
+                            pseudosCache.addMove(i,idx);
                         }
                     }
                 }
@@ -1617,13 +1616,13 @@ QVector<Move> Board::pseudo_legal_moves_san_parse(uint8_t to_square,
                         if(!this->is_offside(idx)) {
                             if(this->is_empty(idx)) {
                                 if(to_square == idx) {
-                                    moves.append(Move(i,idx));
+                                    pseudosCache.addMove(i,idx);
                                 }
                             } else {
                                 stop = true;
                                 if(this->piece_color(idx) != color) {
                                     if(to_square == idx) {
-                                        moves.append(Move(i,idx));
+                                        pseudosCache.addMove(i,idx);
                                     }
                                 }
                             }
@@ -1636,7 +1635,6 @@ QVector<Move> Board::pseudo_legal_moves_san_parse(uint8_t to_square,
             }
         }
     }
-    return moves;
 }
 
 bool Board::movePromotes(const Move&m) {
@@ -2332,29 +2330,32 @@ Move Board::parse_san(QString san) {
 
 Move Board::parse_san_fast(QString san) {
 
+    // first check if null move
+    if(san==QLatin1String("--")) {
+        //Move m = Move();
+        //return m;
+        return Move();
+    }
+
     auto start = std::chrono::steady_clock::now();
 
-    // first check if null move
-    if(san==QString("--")) {
-        Move m = Move();
-        return m;
-    }
-
-    Move m = Move(0,0);
+    uint8_t promotion_piece = 0;
 
     // check for castling moves
-    if(san==QLatin1String("O-O") || san == QLatin1String("O-O+") || san==QLatin1String("O-O#")) {
-        if(this->turn == WHITE) {
-            return Move(E1,G1);
-        } else {
-            return Move(E8,G8);
+    if(san.startsWith(QLatin1String("O"))) {
+        if(san==STR_CASTLE_SHORT || san == STR_CASTLE_SHORT_CHECK || san==STR_CASTLE_SHORT_MATE) {
+            if(this->turn == WHITE) {
+                return Move(E1,G1);
+            } else {
+                return Move(E8,G8);
+            }
         }
-    }
-    if(san==QLatin1String("O-O-O") || san == QLatin1String("O-O-O+") || san==QLatin1String("O-O-O#")) {
-        if(this->turn == WHITE) {
-            return Move(E1,C1);
-        } else {
-            return Move(E8,C8);
+        if(san==STR_CASTLE_LONG || san == STR_CASTLE_LONG_CHECK || san==STR_CASTLE_LONG_MATE) {
+            if(this->turn == WHITE) {
+                return Move(E1,C1);
+            } else {
+                return Move(E8,C8);
+            }
         }
     }
 
@@ -2362,6 +2363,7 @@ Move Board::parse_san_fast(QString san) {
     if(!match.hasMatch()) {
         throw std::invalid_argument("invalid san: "+san.toStdString());
     }
+
     // get target square
     QString str_target = match.captured(4).toUpper();
     uint8_t target_col = this->alpha_to_pos(str_target.at(0));
@@ -2373,14 +2375,14 @@ Move Board::parse_san_fast(QString san) {
     QString str_prom = match.captured(5);
     if(!str_prom.isNull()) {
         //std::cout << match.captured(5).toStdString() << std::endl;
-        if(match.captured(5)==QLatin1String("=N")) {
-            m.promotion_piece = KNIGHT;
-        } else if(match.captured(5)==QLatin1String("=B")) {
-            m.promotion_piece = BISHOP;
-        } else if(match.captured(5)==QLatin1String("=R")) {
-            m.promotion_piece = ROOK;
-        } else if(match.captured(5)==QLatin1String("=Q")) {
-            m.promotion_piece = QUEEN;
+        if(match.captured(5)==STR_PROMOTE_TO_KNIGHT) {
+            promotion_piece = KNIGHT;
+        } else if(match.captured(5)==STR_PROMOTE_TO_BISHOP) {
+            promotion_piece = BISHOP;
+        } else if(match.captured(5)==STR_PROMOTE_TO_ROOK) {
+            promotion_piece = ROOK;
+        } else if(match.captured(5)==STR_PROMOTE_TO_QUEEN) {
+            promotion_piece = QUEEN;
         } else {
             throw std::invalid_argument("invalid san / promotion: "+match.captured(5).toStdString());
         }
@@ -2390,15 +2392,15 @@ Move Board::parse_san_fast(QString san) {
     }
     // get piece type
     uint8_t piece_type = 0;
-    if(match.captured(1) == QLatin1String("B")) {
+    if(match.captured(1) == STR_BISHOP) {
         piece_type = BISHOP;
-    } else if(match.captured(1) == QLatin1String("N")) {
+    } else if(match.captured(1) == STR_KNIGHT) {
         piece_type = KNIGHT;
-    } else if(match.captured(1) == QLatin1String("R")) {
+    } else if(match.captured(1) == STR_ROOK) {
         piece_type = ROOK;
-    } else if(match.captured(1) == QLatin1String("Q")) {
+    } else if(match.captured(1) == STR_QUEEN) {
         piece_type = QUEEN;
-    } else if(match.captured(1) == QLatin1String("K")) {
+    } else if(match.captured(1) == STR_KING) {
         piece_type = KING;
     } else {
         piece_type = PAWN;
@@ -2411,16 +2413,14 @@ Move Board::parse_san_fast(QString san) {
 
     start = std::chrono::steady_clock::now();
 
-    QVector<Move> pseudos = pseudo_legal_moves_san_parse(target,
-                                                         piece_type,
-                                                         true);
+    pseudo_legal_moves_san_parse(target, piece_type, true);
     stop = std::chrono::steady_clock::now();
     std::chrono::duration<double> diff1 = (stop - start);
     i_millis = std::chrono::duration_cast<std::chrono::nanoseconds>(diff1);
     Profile::pseudo_generation += i_millis;
 
-    if(pseudos.length() == 1) {
-        return pseudos.at(0);
+    if(pseudosCache.count() == 1) {
+        return Move(pseudosCache.cache.at(0));
     } /*else {
         qDebug() << san;
         for(int i=0;i<pseudos.length();i++) {
@@ -2449,13 +2449,13 @@ Move Board::parse_san_fast(QString san) {
 
     // filter all moves
     QVector<Move> lgl_piece;
-    for(int i=0;i<pseudos.count();i++) {
-        Move mi = pseudos.at(i);
+    for(int i=0;i<pseudosCache.count();i++) {
+        Move mi = Move(pseudosCache.cache.at(i));
 
         uint8_t mi_row = (mi.from / 10) - 1;
         uint8_t mi_col = mi.from % 10;
         if(target == mi.to && this->piece_type(mi.from) == piece_type
-                && mi.promotion_piece == m.promotion_piece) {
+                && mi.promotion_piece == promotion_piece) {
             if(src_col == 0 && src_row == 0) {
                 lgl_piece.append(mi);
             } else if(src_col !=0 && src_row ==0 && mi_col == src_col) {

@@ -26,6 +26,7 @@
 #include <QRegularExpression>
 #include <QMap>
 #include "move.h"
+#include "move_cache.h"
 
 namespace chess {
 
@@ -220,6 +221,22 @@ const uint8_t BLACK_KNIGHT = 0x82;
 const uint8_t BLACK_PAWN = 0x81;
 const uint8_t BLACK_ANY_PIECE = 0x87;
 
+const QString STR_PROMOTE_TO_KNIGHT = QLatin1String("=N");
+const QString STR_PROMOTE_TO_BISHOP = QLatin1String("=B");
+const QString STR_PROMOTE_TO_ROOK   = QLatin1String("=R");
+const QString STR_PROMOTE_TO_QUEEN  = QLatin1String("=Q");
+const QString STR_BISHOP = QLatin1String("B");
+const QString STR_KNIGHT = QLatin1String("N");
+const QString STR_ROOK   = QLatin1String("R");
+const QString STR_QUEEN  = QLatin1String("Q");
+const QString STR_KING   = QLatin1String("K");
+const QString STR_CASTLE_SHORT       = QLatin1String("O-O");
+const QString STR_CASTLE_SHORT_CHECK = QLatin1String("O-O+");
+const QString STR_CASTLE_SHORT_MATE  = QLatin1String("O-O#");
+const QString STR_CASTLE_LONG        = QLatin1String("O-O-O");
+const QString STR_CASTLE_LONG_CHECK  = QLatin1String("O-O-O+");
+const QString STR_CASTLE_LONG_MATE   = QLatin1String("O-O-O#");
+
 const QRegularExpression FEN_CASTLES_REGEX = QRegularExpression("^-|[KQABCDEFGH]{0,2}[kqabcdefgh]{0,2}$");
 const QRegularExpression SAN_REGEX = QRegularExpression("^([NBKRQ])?([a-h])?([1-8])?x?([a-h][1-8])(=?[nbrqNBRQ])?(\\+|#)?$");
 
@@ -334,7 +351,7 @@ public:
     QVector<Move> pseudo_legal_moves_from(int from_square_idx, bool with_castles, bool turn_color);
     QVector<Move> pseudo_legal_moves_from_pt(int from_square, uint8_t to_square, uint8_t piece_type, bool with_castles, bool turn);
 
-    QVector<Move> pseudo_legal_moves_san_parse(uint8_t to_square,
+    void pseudo_legal_moves_san_parse(uint8_t to_square,
                                             uint8_t piece_type,
                                             bool is_capture
                                             );
@@ -679,6 +696,8 @@ private:
     void update_transposition_table();
 
     friend std::ostream& operator<<(std::ostream& strm, const Board &b);
+
+    static MoveCache pseudosCache;
 
 };
 

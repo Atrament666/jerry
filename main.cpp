@@ -45,6 +45,8 @@ int main(int argc, char *argv[]) {
     Profile::filter_pseudos = chrono::nanoseconds::zero();
     Profile::filter_legal_check = chrono::nanoseconds::zero();
     Profile::parse_san_fast = chrono::nanoseconds::zero();
+    Profile::node_new = chrono::nanoseconds::zero();
+    Profile::node_regexp = chrono::nanoseconds::zero();
 
     srand(time(NULL));
     chess::FuncT *p = new chess::FuncT();
@@ -63,6 +65,9 @@ int main(int argc, char *argv[]) {
     std::cout << "Duration Filter Pse:" << (Profile::filter_pseudos.count() ) << '\n';
     std::cout << "Duration Filter Leg:" << (Profile::filter_legal_check.count() ) << '\n';
     std::cout <<std::fixed<< "Duration Parse San :" << (Profile::parse_san_fast.count() ) << '\n';
+    std::cout << "Heap Allocation Game Node:" << (Profile::node_new.count() ) << '\n';
+    std::cout << "Regexp Game Node:" << (Profile::node_regexp.count() ) << '\n';
+
 
     //p->run_pgn_speedtest();
     //p->run_zobrist_test();

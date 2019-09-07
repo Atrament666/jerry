@@ -666,7 +666,7 @@ chess::Game* PgnReader::readGameFromFile(const QString &filename, const char* en
 chess::Game* PgnReader::readGame(QTextStream& in) {
 
     chess::Game* g = new Game();
-    QString starting_fen = QString("");
+    QString starting_fen = QLatin1String("");
 
     QStack<GameNode*> *game_stack = new QStack<GameNode*>();
     game_stack->push(g->getRootNode());
@@ -687,7 +687,7 @@ chess::Game* PgnReader::readGame(QTextStream& in) {
             // don't add FEN tag explicitly,
             // will be always automatically generated and added
             // when printing a game later...
-            if(tag == QString("FEN")) {
+            if(tag == QLatin1String("FEN")) {
                 starting_fen = value;
             } else {
                 //g->headers.insert(tag,value);
@@ -725,7 +725,7 @@ chess::Game* PgnReader::readGame(QTextStream& in) {
         }
     }
     // Get the next non-empty line.
-    while(line.trimmed() == QString("") && !line.isEmpty()) {
+    while(line.trimmed() == QLatin1String("") && !line.isEmpty()) {
         line = in.readLine();
     }
 
@@ -740,9 +740,20 @@ chess::Game* PgnReader::readGame(QTextStream& in) {
             delete game_stack;
             return g;
         }
+        auto startMatchIterator = std::chrono::steady_clock::now();
         QRegularExpressionMatchIterator i = MOVETEXT_REGEX.globalMatch(line);
+        auto stopMatchIterator = std::chrono::steady_clock::now();
+        std::chrono::duration<double> diffIterator = (stopMatchIterator - startMatchIterator);
+        auto i_millis_it = std::chrono::duration_cast<std::chrono::nanoseconds>(diffIterator);
+        Profile::node_regexp += i_millis_it;
         while (i.hasNext()) {
+            startMatchIterator = std::chrono::steady_clock::now();
             QRegularExpressionMatch match = i.next();
+            stopMatchIterator = std::chrono::steady_clock::now();
+            std::chrono::duration<double> diffIterator2 = (stopMatchIterator - startMatchIterator);
+            auto i_millis_it2 = std::chrono::duration_cast<std::chrono::nanoseconds>(diffIterator2);
+            Profile::node_regexp += i_millis_it2;
+
             QString token = match.captured(0);
             if(token.startsWith("%")) {
                 line = in.readLine();
@@ -771,9 +782,9 @@ chess::Game* PgnReader::readGame(QTextStream& in) {
                     end_index = line.indexOf("}");
                     line = line.remove(0,end_index+1);
                 } else {
-                    line = QString("");
+                    line = QLatin1String("");
                 }
-                QString comment_joined = comment_lines->join(QString("\n"));
+                QString comment_joined = comment_lines->join(QLatin1String("\n"));
                 current->setComment(comment_joined);
                 // if the line didn't end with }, we don't want to read the next line yet
                 if(!line.trimmed().isEmpty()) {
@@ -787,73 +798,80 @@ chess::Game* PgnReader::readGame(QTextStream& in) {
                 int nag = token.remove(0,1).toInt();
                 current->addNag(nag);
             }
-            else if(token == QString("?")) {
+            else if(token == QLatin1String("?")) {
                 current->addNag(NAG_MISTAKE);
             }
-            else if(token == QString("??")) {
+            else if(token == QLatin1String("??")) {
                 current->addNag(NAG_BLUNDER);
             }
-            else if(token == QString("!")) {
+            else if(token == QLatin1String("!")) {
                 current->addNag(NAG_GOOD_MOVE);
             }
-            else if(token == QString("!!")) {
+            else if(token == QLatin1String("!!")) {
                 current->addNag(NAG_BRILLIANT_MOVE);
             }
-            else if(token == QString("!?")) {
+            else if(token == QLatin1String("!?")) {
                 current->addNag(NAG_SPECULATIVE_MOVE);
             }
-            else if(token == QString("?!")) {
+            else if(token == QLatin1String("?!")) {
                 current->addNag(NAG_DUBIOUS_MOVE);
             }
-            else if(token == QString("(")) {
+            else if(token == QLatin1String("(")) {
                 // put current node on stack, so that we don't forget it.
                 game_stack->push(current);
                 current = current->getParent();
             }
-            else if(token == QString(")")) {
+            else if(token == QLatin1String(")")) {
                 // pop from stack. but always leave root
                 if(game_stack->size() > 1) {
                     current = game_stack->pop();
                 }
             }
-            else if(token == QString("1-0")) {
+            else if(token == QLatin1String("1-0")) {
                 g->setResult(RES_WHITE_WINS);
                 foundContent = true;
             }
-            else if(token == QString("0-1")) {
+            else if(token == QLatin1String("0-1")) {
                 g->setResult(RES_BLACK_WINS);
                 foundContent = true;
             }
-            else if(token == QString("1/2-1/2")) {
+            else if(token == QLatin1String("1/2-1/2")) {
                 g->setResult(RES_DRAW);
                 foundContent = true;
             }
-            else if(token == QString("*")) {
+            else if(token == QLatin1String("*")) {
                 g->setResult(RES_UNDEF);
                 foundContent = true;
             }
             else { // this should be a san token
                 foundContent = true;
                 // zeros in castling (common bug)
-                if(token==QString("0-0")) {
-                    token = QString("O-O");
-                } else if(token ==QString("0-0-0")) {
-                    token = QString("O-O-O");
+                if(token.startsWith(QChar('0'))) {
+                    if(token==QLatin1String("0-0")) {
+                        token = QLatin1String("O-O");
+                    } else if(token ==QLatin1String("0-0-0")) {
+                        token = QLatin1String("O-O-O");
+                    }
                 }
                 //Move *m = 0;
+                auto start = std::chrono::steady_clock::now();
                 GameNode *next = new GameNode();
+                auto stop = std::chrono::steady_clock::now();
+                std::chrono::duration<double> diff1 = (stop - start);
+                auto i_millis = std::chrono::duration_cast<std::chrono::nanoseconds>(diff1);
+                Profile::node_new += i_millis;
+
                 // Board *b_next = 0;
                 try {
                     Board b = current->getBoard();
 
-
-                    auto start = std::chrono::steady_clock::now();
+                    start = std::chrono::steady_clock::now();
                     //Move m = Move(b.parse_san(token));
                     Move m = Move(b.parse_san_fast(token));
 
-                    auto stop = std::chrono::steady_clock::now();
+                    stop = std::chrono::steady_clock::now();
                     std::chrono::duration<double> diff2 = (stop - start);
-                    auto i_millis = std::chrono::duration_cast<std::chrono::nanoseconds>(diff2);
+                    i_millis = std::chrono::duration_cast<std::chrono::nanoseconds>(diff2);
                     Profile::parse_san_fast += i_millis;
 
                     Board b_next = Board(b);
