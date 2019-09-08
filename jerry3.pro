@@ -39,6 +39,7 @@ SOURCES += main.cpp \
     scid/position.cpp \
     scid/stored.cpp \
     scid/textbuf.cpp \
+    scid_test.cpp \
     uci/uci_controller.cpp \
     uci/uci_worker.cpp \
     uci/engine_info.cpp \
@@ -116,6 +117,7 @@ HEADERS += \
     scid/sqmove.h \
     scid/stored.h \
     scid/textbuf.h \
+    scid_test.h \
     uci/uci_worker.h \
     uci/uci_controller.h \
     uci/engine_info.h \

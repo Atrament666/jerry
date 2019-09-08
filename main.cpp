@@ -32,6 +32,7 @@
 #include <QStyleFactory>
 #include "various/resource_finder.h"
 #include "profile/profile.h"
+#include "scid_test.h"
 
 #include <chrono>
 
@@ -52,7 +53,7 @@ int main(int argc, char *argv[]) {
     chess::FuncT *p = new chess::FuncT();
     auto start = std::chrono::steady_clock::now();
 
-    p->run_pgn_parse_speedtest();
+    //p->run_pgn_parse_speedtest();
 
     auto stop = std::chrono::steady_clock::now();
     std::chrono::duration<double> diff = (stop - start);
@@ -75,7 +76,10 @@ int main(int argc, char *argv[]) {
     //p.run_pgn_scant();
     //p.run_sant();
     // p->run_ucit();
-    p->run_pertf();
+    //p->run_pertf();
+
+    ScidTest *st = new ScidTest();
+    st->run();
 
     //QApplication::setAttribute(Qt::AA_EnableHighDpiScaling); // DPI support
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
