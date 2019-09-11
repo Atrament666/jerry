@@ -7,6 +7,7 @@
 #include <QDesktopWidget>
 #include <QApplication>
 
+/*
 DialogBrowseHeaders::DialogBrowseHeaders(QList<chess::HeaderOffset> *header_offsets,
                                          QString &filename, QWidget *parent) :
     QDialog(parent), header_offsets(header_offsets)
@@ -47,11 +48,11 @@ DialogBrowseHeaders::DialogBrowseHeaders(QList<chess::HeaderOffset> *header_offs
     //this->table->horizontalHeader()->setStretchLastSection(true);
     this->table->selectRow(0);
 
-/*
-    f = this->fontMetrics();
-    rec = QApplication.desktop().screenGeometry()
-    self.resize(min(650,rec.width()-100),min(rows*20+130,rec.height()-200))
-*/
+
+    //f = this->fontMetrics();
+    //rec = QApplication.desktop().screenGeometry()
+    //self.resize(min(650,rec.width()-100),min(rows*20+130,rec.height()-200))
+
 
     this->searchField = new QLineEdit(this);
     this->btnSearch = new QPushButton(tr("Search"), this);
@@ -95,6 +96,7 @@ DialogBrowseHeaders::DialogBrowseHeaders(QList<chess::HeaderOffset> *header_offs
     connect(this->btnReset, &QPushButton::clicked, this, &DialogBrowseHeaders::onResetSearch);
 
 }
+*/
 
 void DialogBrowseHeaders::resizeTo(float ratio) {
 
@@ -118,6 +120,7 @@ void DialogBrowseHeaders::resizeTo(float ratio) {
 }
 
 void DialogBrowseHeaders::drawAllItems() {
+    /*
     this->table->clear();
     this->table->setHorizontalHeaderLabels(this->tableHeaders);
     this->table->setRowCount(this->header_offsets->size());
@@ -139,6 +142,7 @@ void DialogBrowseHeaders::drawAllItems() {
 
     }
     this->table->resizeColumnsToContents();
+    */
 }
 
 void DialogBrowseHeaders::onResetSearch() {
@@ -147,6 +151,7 @@ void DialogBrowseHeaders::onResetSearch() {
 }
 
 void DialogBrowseHeaders::onSearch() {
+    /*
     this->table->clear();
     this->table->clearContents();
     QString searchTerm = this->searchField->text().toLower();
@@ -185,13 +190,16 @@ void DialogBrowseHeaders::onSearch() {
         this->gameIdx = 0;
     }
     this->table->setRowCount(idx);
+    */
 }
 
 void DialogBrowseHeaders::onItemSelectionChanged() {
+    /*
     QList<QTableWidgetItem *> selectedItems = this->table->selectedItems();
     if(selectedItems.size() > 0) {
         int idx = (selectedItems.at(0)->text()).toInt() - 1;
         this->gameOffset = this->header_offsets->at(idx).offset;
         this->gameIdx = idx;
     }
+    */
 }

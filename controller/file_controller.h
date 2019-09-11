@@ -34,7 +34,7 @@ private:
     QWidget *parentWidget;
     void saveGameTo(QString &filename);
     WId board; //?
-    void setupNewGame(chess::Game* g);
+    //void setupNewGame(chess::Game* g);
     void openGameFrom(QString &path, QString &absoluteFilename, bool reOpen);
     void openInCurrentPgnAt(int idx);
 

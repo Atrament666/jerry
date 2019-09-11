@@ -4,8 +4,8 @@
 #include <QWidget>
 #include "viewController/piece_images.h"
 #include "viewController/colorstyle.h"
-#include "chess/board.h"
-#include "chess/game_node.h"
+//#include "chess/board.h"
+//#include "chess/game_node.h"
 
 struct GrabbedPiece {
     int piece_type;
@@ -24,26 +24,26 @@ public:
     ColorStyle* getColorStyle();
     void setFlipBoard(bool onOff);
     void setGrabbedPiece(int piece, int color);
-    void setBoard(chess::Board b);
-    void setArrows(QVector<chess::Arrow> arrows);
-    void setColoredFields(QVector<chess::ColoredField> fields);
+    //void setBoard(chess::Board b);
+    //void setArrows(QVector<chess::Arrow> arrows);
+    //void setColoredFields(QVector<chess::ColoredField> fields);
 
     void setGrabbedArrowFrom(int x, int y);
     void setGrabbedArrowTo(int x, int y);
 
 private:
 
-    QVector<chess::Arrow> currentArrows;
-    QVector<chess::ColoredField> currentColoredFields;
+    //QVector<chess::Arrow> currentArrows;
+    //QVector<chess::ColoredField> currentColoredFields;
 
 protected:
 
-    chess::Move lastMove;
+    //chess::Move lastMove;
     QPoint* moveSrc;
     bool drawGrabbedPiece;
     bool drawGrabbedArrow;
     struct GrabbedPiece *grabbedPiece;
-    struct chess::Arrow *grabbedArrow;
+    //struct chess::Arrow *grabbedArrow;
     bool flipBoard;
 
     QColor *arrowGrabColor;
@@ -52,14 +52,14 @@ protected:
     ColorStyle *style;
     int borderWidth;
     PieceImages *pieceImages;
-    chess::Board board;
+    //chess::Board board;
 
     // device pixel ratio
     qreal dpr;
 
     void drawBoard(QPaintEvent *event, QPainter *painter);
     void calculateBoardSize(int *boardSize, int *squareSize);
-    void drawArrow(const chess::Arrow &ai, int boardOffsetX, int boardOffsetY, int squareSize, QPainter *painter);
+    //void drawArrow(const chess::Arrow &ai, int boardOffsetX, int boardOffsetY, int squareSize, QPainter *painter);
 
     void paintEvent(QPaintEvent *e);
     //void resizeEvent(QResizeEvent *e);

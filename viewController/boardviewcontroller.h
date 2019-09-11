@@ -54,10 +54,10 @@ private:
     uint8_t xyToBoardIdx(int x, int y);
     void touchPiece(int x, int y, int mouse_x, int mouse_y);
     void resetMove();
-    void drawArrow(chess::Arrow *, int boardOffsetX, int boardOffsetY, int squareSize, QPainter *);
+    //void drawArrow(chess::Arrow *, int boardOffsetX, int boardOffsetY, int squareSize, QPainter *);
     void handleColoringOnKeyPress(QPoint *pos);
     void handleColoringonKeyRelease(QPoint *pos);
-    void applyMove(chess::Move *m);
+    //void applyMove(chess::Move *m);
 
 protected:
      void paintEvent(QPaintEvent *e);

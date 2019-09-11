@@ -19,20 +19,21 @@
 
 
 #include "moveviewcontroller.h"
-#include "chess/pgn_printer.h"
-#include "chess/gui_printer.h"
-#include "chess/game.h"
+//#include "chess/pgn_printer.h"
+//#include "chess/gui_printer.h"
+//#include "chess/game.h"
 #include <QDebug>
 #include <QMenu>
 #include <QTextDocument>
 #include <QTextFragment>
 #include "dialogs/dialog_nextmove.h"
 #include "dialogs/dialog_plaintext.h"
-#include "chess/pgn_reader.h"
+//#include "chess/pgn_reader.h"
 
 MoveViewController::MoveViewController(GameModel *gameModel, QWidget *parent) :
     QTextBrowser(parent)
 {
+    /*
     this->pos_rightclick = new QPoint(-1,-1);
     this->gameModel = gameModel;
     this->document = new QTextDocument();
@@ -42,11 +43,13 @@ MoveViewController::MoveViewController(GameModel *gameModel, QWidget *parent) :
 
     connect(this, &MoveViewController::anchorClicked, this, &MoveViewController::onAnchorClicked);
     connect(this, &MoveViewController::customContextMenuRequested, this, &MoveViewController::showContextMenu);
+    */
 }
 
 void MoveViewController::showContextMenu(const QPoint &pos) {
     QMenu *menu = new QMenu(this);
 
+    /*
     this->pos_rightclick->setX(pos.x());
     this->pos_rightclick->setY(pos.y());
 
@@ -130,8 +133,10 @@ void MoveViewController::showContextMenu(const QPoint &pos) {
     connect(delAllVariants, &QAction::triggered, this, &MoveViewController::removeAllVariants);
 
     menu->exec(QCursor::pos());
+    */
 }
 
+/*
 chess::GameNode* MoveViewController::findNodeOnRightclick() {
     QString s_node = this->anchorAt(*this->pos_rightclick);
     // first try to find the node on which the user right-clicked on
@@ -141,9 +146,11 @@ chess::GameNode* MoveViewController::findNodeOnRightclick() {
     int nodeNumber = s_node.toInt();
     return this->gameModel->getGame()->findNodeById(nodeNumber);
 }
+*/
 
 
 void MoveViewController::annotation(int nag, int min, int max) {
+    /*
     try {
         chess::GameNode *node = this->findNodeOnRightclick();
         // first remove old relevant nags, which
@@ -157,6 +164,7 @@ void MoveViewController::annotation(int nag, int min, int max) {
         // if the node with the supplied id cannot be found
         // something is just wrong. just ignore and do nothing
     }
+    */
 }
 
 void MoveViewController::removeAnnotations() {
@@ -164,6 +172,7 @@ void MoveViewController::removeAnnotations() {
 }
 
 void MoveViewController::onAnchorClicked(const QUrl& link) {
+    /*
     QString s_node = link.toString();
     if(s_node.count() > 1) {
         s_node = s_node.mid(1,s_node.count()-1);
@@ -177,10 +186,12 @@ void MoveViewController::onAnchorClicked(const QUrl& link) {
         // if the node with the supplied id cannot be found
         // something is just wrong. just ignore and do nothing
     }
+    */
 }
 
 
 void MoveViewController::addComment() {
+    /*
     try {
         chess::GameNode *node = this->findNodeOnRightclick();
         DialogPlainText *d = new DialogPlainText();
@@ -196,12 +207,12 @@ void MoveViewController::addComment() {
         // if the node with the supplied id cannot be found
         // something is just wrong. just ignore and do nothing
     }
-
-
+    */
 }
 
 
 void MoveViewController::deleteComment() {
+    /*
     try {
         chess::GameNode *node = this->findNodeOnRightclick();
         QString e = QString("");
@@ -212,10 +223,12 @@ void MoveViewController::deleteComment() {
         // if the node with the supplied id cannot be found
         // something is just wrong. just ignore and do nothing
     }
+    */
 }
 
 
 void MoveViewController::variantUp() {
+    /*
     QString s_node = this->anchorAt(*this->pos_rightclick);
     // first try to find the node on which the user right-clicked on
     if(s_node.count() > 1) {
@@ -231,11 +244,12 @@ void MoveViewController::variantUp() {
         // if the node with the supplied id cannot be found
         // something is just wrong. just ignore and do nothing
     }
-
+    */
 }
 
 
 void MoveViewController::variantDown() {
+    /*
     try {
         chess::GameNode *node = this->findNodeOnRightclick();
         this->gameModel->getGame()->moveDown(node);
@@ -245,9 +259,11 @@ void MoveViewController::variantDown() {
         // if the node with the supplied id cannot be found
         // something is just wrong. just ignore and do nothing
     }
+    */
 }
 
 void MoveViewController::deleteVariant() {
+    /*
     try {
         chess::GameNode *node = this->findNodeOnRightclick();
         this->gameModel->getGame()->delVariant(node);
@@ -257,9 +273,11 @@ void MoveViewController::deleteVariant() {
         // if the node with the supplied id cannot be found
         // something is just wrong. just ignore and do nothing
     }
+    */
 }
 
 void MoveViewController::deleteFromHere() {
+    /*
     try {
         chess::GameNode *node = this->findNodeOnRightclick();
         this->gameModel->getGame()->delBelow(node);
@@ -269,19 +287,23 @@ void MoveViewController::deleteFromHere() {
         // if the node with the supplied id cannot be found
         // something is just wrong. just ignore and do nothing
     }
-
+    */
 }
 
 void MoveViewController::removeAllComments() {
+    /*
     this->gameModel->getGame()->removeAllComments();
     this->gameModel->getGame()->setTreeWasChanged(true);
     this->gameModel->triggerStateChange();
+    */
 }
 
 void MoveViewController::removeAllVariants() {
+    /*
     this->gameModel->getGame()->removeAllVariants();
     this->gameModel->getGame()->setTreeWasChanged(true);
     this->gameModel->triggerStateChange();
+    */
 }
 
 void MoveViewController::setSource(const QUrl&)
@@ -331,6 +353,7 @@ void MoveViewController::selectAndMarkAnchor(const QString& link)
 }
 
 void MoveViewController::onForwardClick() {
+    /*
     if(this->gameModel->getGame()->getCurrentNode()->hasVariations()) {
         DialogNextMove *d = new DialogNextMove(this->gameModel->getGame()->getCurrentNode(), this->parentWidget());
         //bool answer = d->exec();
@@ -343,30 +366,31 @@ void MoveViewController::onForwardClick() {
         this->gameModel->getGame()->goToMainLineChild();
     }
     this->gameModel->triggerStateChange();
+    */
 }
 
 void MoveViewController::onScrollBack() {
-    this->gameModel->getGame()->goToParent();
+    //this->gameModel->getGame()->goToParent();
     this->gameModel->triggerStateChange();
 }
 
 void MoveViewController::onScrollForward() {
-    this->gameModel->getGame()->goToMainLineChild();
+    //this->gameModel->getGame()->goToMainLineChild();
     this->gameModel->triggerStateChange();
 }
 
 void MoveViewController::onSeekToBeginning() {
-    this->gameModel->getGame()->goToRoot();
+    //this->gameModel->getGame()->goToRoot();
     this->gameModel->triggerStateChange();
 }
 
 void MoveViewController::onSeekToEnd() {
-    this->gameModel->getGame()->goToEnd();
+    //this->gameModel->getGame()->goToEnd();
     this->gameModel->triggerStateChange();
 }
 
 void MoveViewController::onBackwardClick() {
-    this->gameModel->getGame()->goToParent();
+    //this->gameModel->getGame()->goToParent();
     this->gameModel->triggerStateChange();
 }
 
@@ -386,6 +410,7 @@ void MoveViewController::keyPressEvent(QKeyEvent *e) {
 
 void MoveViewController::onStateChange() {
 
+    /*
     if(this->gameModel->getGame()->isTreeChanged()) {
         this->document->clear();
         QString format = "a:link { color: #000000; text-decoration: none}";
@@ -410,5 +435,6 @@ void MoveViewController::onStateChange() {
         this->selectAndMarkAnchor(QString("#").append(QString::number((s_node))));
     }
     this->setFocus();
+    */
 }
 

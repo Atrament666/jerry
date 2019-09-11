@@ -38,6 +38,7 @@ void ScidTest::run() {
     }
 
     // check if move w/o specific promotion marker is checked to be legal
-
+    //  bool        IsPromoMove (squareT from, squareT to); useful?
+    // resp. generate all four possible moves and check for errors
 
 }

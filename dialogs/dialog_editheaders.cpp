@@ -4,7 +4,7 @@
 #include <QGroupBox>
 #include <QDebug>
 
-
+/*
 DialogEditHeaders::DialogEditHeaders(chess::Game &g, QWidget *parent) :
     QDialog(parent)
 {
@@ -85,3 +85,4 @@ DialogEditHeaders::DialogEditHeaders(chess::Game &g, QWidget *parent) :
     this->leSite->setFocus();
 
 }
+*/

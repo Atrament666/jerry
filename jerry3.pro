@@ -23,13 +23,6 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp \
-    chess/board.cpp \
-    chess/move.cpp \
-    chess/game_node.cpp \
-    chess/game.cpp \
-    chess/move_cache.cpp \
-    chess/pgn_reader.cpp \
-    chess/pgn_printer.cpp \
     dialogs/tab_board_style.cpp \
     dialogs/tab_font_style.cpp \
     model/font_style.cpp \
@@ -50,7 +43,6 @@ SOURCES += main.cpp \
     viewController/piece_images.cpp \
     dialogs/dialog_promotion.cpp \
     viewController/moveviewcontroller.cpp \
-    chess/gui_printer.cpp \
     dialogs/dialog_nextmove.cpp \
     dialogs/dialog_plaintext.cpp \
     controller/mode_controller.cpp \
@@ -76,12 +68,8 @@ SOURCES += main.cpp \
     viewController/chessboard.cpp \
     viewController/enterposboard.cpp \
     viewController/pickcolorboard.cpp \
-    chess/ecocode.cpp \
-    chess/polyglot.cpp \
     various/helper.cpp \
-    chess/database.cpp \
     viewController/database_index_model.cpp \
-    chess/pgn_database.cpp \
     dialogs/dialog_database.cpp \
     dialogs/dialog_database_help.cpp \
     model/search_pattern.cpp \
@@ -89,13 +77,6 @@ SOURCES += main.cpp \
     dialogs/tab_header_search.cpp
 
 HEADERS += \
-    chess/board.h \
-    chess/move.h \
-    chess/game_node.h \
-    chess/game.h \
-    chess/move_cache.h \
-    chess/pgn_reader.h \
-    chess/pgn_printer.h \
     dialogs/tab_board_style.h \
     dialogs/tab_font_style.h \
     model/font_style.h \
@@ -128,7 +109,6 @@ HEADERS += \
     viewController/piece_images.h \
     dialogs/dialog_promotion.h \
     viewController/moveviewcontroller.h \
-    chess/gui_printer.h \
     dialogs/dialog_nextmove.h \
     dialogs/dialog_plaintext.h \
     controller/mode_controller.h \
@@ -154,15 +134,11 @@ HEADERS += \
     viewController/chessboard.h \
     viewController/enterposboard.h \
     viewController/pickcolorboard.h \
-    chess/ecocode.h \
-    chess/polyglot.h \
     various/helper.h \
     chess/constants.h \
     chess/arrow.h \
     chess/colored_field.h \
-    chess/database.h \
     viewController/database_index_model.h \
-    chess/pgn_database.h \
     dialogs/dialog_database.h \
     dialogs/dialog_database_help.h \
     model/search_pattern.h \

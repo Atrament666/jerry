@@ -26,7 +26,7 @@
 #include <QTextDocument>
 #include <QKeyEvent>
 #include "model/game_model.h"
-#include "chess/gui_printer.h"
+//#include "chess/gui_printer.h"
 
 class MoveViewController : public QTextBrowser
 {
@@ -38,7 +38,7 @@ private:
     QPoint *pos_rightclick;
     GameModel *gameModel;
     QTextDocument *document;
-    chess::GuiPrinter *guiPrinter;
+    //chess::GuiPrinter *guiPrinter;
     void selectAndMarkAnchor(const QString &link);
 
 protected:
@@ -67,7 +67,7 @@ public slots:
     void onScrollForward();
     void onSeekToBeginning();
     void onSeekToEnd();
-    chess::GameNode* findNodeOnRightclick();
+    //chess::GameNode* findNodeOnRightclick();
 
 };
 

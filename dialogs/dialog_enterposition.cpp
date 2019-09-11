@@ -9,6 +9,7 @@
 #include <QRadioButton>
 #include <QVBoxLayout>
 
+/*
 DialogEnterPosition::DialogEnterPosition(const chess::Board &board, const ColorStyle &style,
                                          QWidget *parent) :
     QDialog(parent)
@@ -86,31 +87,32 @@ DialogEnterPosition::DialogEnterPosition(const chess::Board &board, const ColorS
 
     this->resizeTo(0.6);
 
-    /*
-         self.connect(self.buttonBox, SIGNAL("accepted()"),
-                  self, SLOT("accept()"))
-         self.connect(self.buttonBox, SIGNAL("rejected()"),
-                  self, SLOT("reject()"))
 
-         self.cbWhiteShort.toggled.connect(self.set_castling_rights)
-         self.cbWhiteLong.toggled.connect(self.set_castling_rights)
-         self.cbBlackShort.toggled.connect(self.set_castling_rights)
-         self.cbBlackLong.toggled.connect(self.set_castling_rights)
+      //   self.connect(self.buttonBox, SIGNAL("accepted()"),
+      //            self, SLOT("accept()"))
+      //   self.connect(self.buttonBox, SIGNAL("rejected()"),
+      //            self, SLOT("reject()"))
+      //
+      //   self.cbWhiteShort.toggled.connect(self.set_castling_rights)
+      //   self.cbWhiteLong.toggled.connect(self.set_castling_rights)
+      //   self.cbBlackShort.toggled.connect(self.set_castling_rights)
+      //   self.cbBlackLong.toggled.connect(self.set_castling_rights)
+      //
+      //   self.rbWhite.toggle()
+      //   self.rbWhite.toggled.connect(self.set_turn)
+      //   self.rbBlack.toggled.connect(self.set_turn)
+      //
+      //   self.buttonInit.clicked.connect(self.initial_position)
+      //   self.buttonClear.clicked.connect(self.clear_board)
+      //   self.buttonCurrent.clicked.connect(self.set_current)
+      //
+      //   # reset who's current turn it is and the current
+      //   # castling rights of the position
+      //   self.set_castling_rights()
+      //   self.set_turn()
 
-         self.rbWhite.toggle()
-         self.rbWhite.toggled.connect(self.set_turn)
-         self.rbBlack.toggled.connect(self.set_turn)
-
-         self.buttonInit.clicked.connect(self.initial_position)
-         self.buttonClear.clicked.connect(self.clear_board)
-         self.buttonCurrent.clicked.connect(self.set_current)
-
-         # reset who's current turn it is and the current
-         # castling rights of the position
-         self.set_castling_rights()
-         self.set_turn()
-*/
 }
+*/
 
 void DialogEnterPosition::resizeTo(float ratio) {
 
@@ -138,11 +140,13 @@ void DialogEnterPosition::resizeTo(float ratio) {
 }
 
 void DialogEnterPosition::checkConsistency() {
+    /*
     if(this->sbv->getCurrentBoard().is_consistent()) {
         this->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
     } else {
         this->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
     }
+    */
 }
 
 void DialogEnterPosition::setToInitialPosition() {
@@ -177,6 +181,8 @@ void DialogEnterPosition::setCastlingRights() {
     this->checkConsistency();
 }
 
+/*
 chess::Board DialogEnterPosition::getCurrentBoard() {
     return std::move(sbv->getCurrentBoard());
 }
+*/

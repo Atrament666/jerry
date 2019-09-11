@@ -37,7 +37,7 @@
 #include "controller/mode_controller.h"
 #include "uci/uci_controller.h"
 #include "model/game_model.h"
-#include "chess/game_node.h"
+//#include "chess/game_node.h"
 #include "uci/uci_controller.h"
 #include <QPushButton>
 #include "viewController/on_off_button.h"
@@ -48,7 +48,7 @@
 #include <QSplitter>
 #include <QButtonGroup>
 #include <QDesktopServices>
-#include "chess/pgn_reader.h"
+//#include "chess/pgn_reader.h"
 #include "viewController/engineview.h"
 #include "dialogs/dialog_about.h"
 #include "various/resource_finder.h"
@@ -56,7 +56,7 @@
 
 #include "funct.h"
 
-#include "chess/ecocode.h"
+//#include "chess/ecocode.h"
 
 #ifdef __APPLE__
     const bool SHOW_ICON_TEXT = false;
@@ -82,7 +82,7 @@ MainWindow::MainWindow(QWidget *parent) :
     // reconstruct gameModel
     this->gameModel = new GameModel();
     this->gameModel->restoreGameState();
-    this->gameModel->getGame()->setTreeWasChanged(true);
+    //this->gameModel->getGame()->setTreeWasChanged(true);
 
     // reconstruct screen geometry
     QSettings settings(this->gameModel->company, this->gameModel->appId);
@@ -582,13 +582,15 @@ void MainWindow::saveImage() {
 }
 
 void MainWindow::onStateChange() {
+    /*
     QString white = this->gameModel->getGame()->getHeader("White");
     QString black = this->gameModel->getGame()->getHeader("Black");
     QString site = this->gameModel->getGame()->getHeader("Site");
     QString date = this->gameModel->getGame()->getHeader("Date");
     QString line1 = QString("<b>").append(white).append(QString(" - ")).append(black).append(QString("</b><br/>"));
     QString line2 = site.append(QString(" ")).append(date);
-    this->name->setText(line1.append(line2));
+    */
+    //this->name->setText(line1.append(line2));
     /*
     if(this->gameModel->wasSaved) {
         this->save_game->setEnabled(true);
@@ -604,13 +606,14 @@ void MainWindow::onStateChange() {
         this->pbEngineOnOff->setChecked(true);
         this->pbEngineOnOff->blockSignals(false);
     }
+    /*
     if(!this->gameModel->getGame()->wasEcoClassified) {
         this->gameModel->getGame()->findEco();
-    }
-    chess::EcoInfo ei = this->gameModel->getGame()->getEcoInfo();
-    QString code = ei.code;
-    QString info = ei.info;
-    this->statusBar()->showMessage(code.append(" ").append(info));
+    }*/
+    //chess::EcoInfo ei = this->gameModel->getGame()->getEcoInfo();
+    //QString code = ei.code;
+    //QString info = ei.info;
+    //this->statusBar()->showMessage(code.append(" ").append(info));
 
     if(this->gameModel->getMode() == MODE_ANALYSIS) {
         this->actionAnalysis->setChecked(true);

@@ -1,5 +1,5 @@
 #include "search_pattern.h"
-#include "chess/game.h"
+//#include "chess/game.h"
 
 SearchPattern::SearchPattern()
 {
@@ -23,6 +23,6 @@ SearchPattern::SearchPattern()
     this->checkElo = SEARCH_IGNORE_ELO;
     this->elo_min = 1000;
     this->elo_max = 3000;
-    this->result = chess::RES_ANY;
+    //this->result = chess::RES_ANY;
 
 }

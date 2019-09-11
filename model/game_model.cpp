@@ -18,15 +18,15 @@
  */
 
 #include "game_model.h"
-#include "chess/game.h"
-#include "chess/board.h"
+//#include "chess/game.h"
+//#include "chess/board.h"
 #include <QDebug>
 #include <QPixmap>
 #include <assert.h>
 #include <QSettings>
 #include <iostream>
-#include "chess/pgn_printer.h"
-#include "chess/pgn_reader.h"
+//#include "chess/pgn_printer.h"
+//#include "chess/pgn_reader.h"
 #include <QtGui>
 #include "internalengine.h"
 #include "various/resource_finder.h"
@@ -40,7 +40,7 @@ GameModel::GameModel(QObject *parent) :
     this->lastOpenDir = "";
     this->lastSaveDir = "";
     this->currentPgnFilename = "";
-    this->game = new chess::Game();
+    //this->game = new chess::Game();
     this->colorStyle = new ColorStyle(ResourceFinder::getPath());
     this->fontStyle = new FontStyle();
     this->mode = MODE_ENTER_MOVES;
@@ -50,7 +50,7 @@ GameModel::GameModel(QObject *parent) :
     this->engines.append(default_engine);
     this->activeEngineIdx = this->engines.size() - 1;
     this->lastAddedEnginePath = QString("");
-    this->humanPlayerColor = chess::WHITE;
+    //this->humanPlayerColor = chess::WHITE;
     // stockfish specific: 0 (min), 20 (max)
     this->engineStrength = 20;
     this->engineThinkTimeMs = 3000;
@@ -77,7 +77,7 @@ GameModel::GameModel(QObject *parent) :
 
     this->loadOpeningBook();
 
-    this->database = chess::PgnDatabase();
+    //this->database = chess::PgnDatabase();
 
     this->nrPvLines = 1;
 }
@@ -88,12 +88,15 @@ GameModel::~GameModel() {
 
 
 void GameModel::loadOpeningBook() {
+    /*
     QString path = ResourceFinder::getPath().append("/books/");
     path = path.append(QString("varied.bin"));
     path = QDir::toNativeSeparators(QDir::cleanPath(path));
     this->book = new chess::Polyglot(path);
+    */
 }
 
+/*
 bool GameModel::canAndMayUseBook(chess::GameNode *node) {
 
     if(node->getDepth() > 20) {
@@ -111,7 +114,9 @@ bool GameModel::canAndMayUseBook(chess::GameNode *node) {
         return false;
     }
 }
+*/
 
+/*
 QVector<chess::Move> GameModel::getBookMoves(chess::GameNode *node) {
     chess::Board b = node->getBoard();
     return this->book->findMoves(b);
@@ -121,6 +126,7 @@ bool GameModel::isInBook(chess::GameNode *node) {
     chess::Board b = node->getBoard();
     return this->book->inBook(b);
 }
+*/
 
 QString GameModel::getLastAddedEnginePath() {
     return this->lastAddedEnginePath;
@@ -139,16 +145,20 @@ void GameModel::setActiveEngine(int activeEngineIdx) {
     this->activeEngineIdx = activeEngineIdx;
 }
 
+/*
 chess::Game* GameModel::getGame() {
     return this->game;
 }
+*/
 
+/*
 void GameModel::setGame(chess::Game *g) {
     assert(g != nullptr);
     delete this->game;
     this->game = g;
     //this->game->setCurrent(this->game->getRootNode());
 }
+*/
 
 void GameModel::triggerStateChange() {
     emit(stateChange());
@@ -260,10 +270,11 @@ void GameModel::saveGameState() {
     }
     settings.endArray();
 
+    /*
     // write current game as pgn to settings
     // first set dummy value
     settings.setValue("currentGame", "");
-    chess::PgnPrinter *printer = new chess::PgnPrinter();
+    //chess::PgnPrinter *printer = new chess::PgnPrinter();
     try {
         QStringList pgnStringList = printer->printGame(*this->getGame());
         QString pgn = pgnStringList.join("\n");
@@ -271,12 +282,14 @@ void GameModel::saveGameState() {
     } catch(std::exception e) {
         std::cerr << e.what() << std::endl;
     }
-    delete printer;
+    //delete printer;
     settings.sync();
+    */
 }
 
 void GameModel::restoreGameState() {
 
+    /*
     QSettings settings(this->company, this->appId);
 
     if(settings.contains("currentGame")) {
@@ -331,11 +344,13 @@ void GameModel::restoreGameState() {
     if(settings.contains("analysisThreshold")) {
         this->analysisThreshold = settings.value("analysisThreshold").toFloat();
     }
+    */
     /* omit show_eval: on starting up, eval should always
      * be displayed, no matter what user did before
     if(settings.contains("showEval")) {
         this->showEval = settings.value("showEval").toBool();
     }*/
+    /*
     int size = settings.beginReadArray("engines");
     for(int i=0;i<size;i++) {
         settings.setArrayIndex(i);
@@ -407,4 +422,5 @@ void GameModel::restoreGameState() {
         }
     }
     settings.endArray();
+    */
 }

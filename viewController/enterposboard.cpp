@@ -6,6 +6,7 @@
 #include "various/resource_finder.h"
 
 
+/*
 EnterPosBoard::EnterPosBoard(const ColorStyle &style,
                              const chess::Board &currentBoard,
                              QWidget *parent, bool incl_joker_piece) :
@@ -26,18 +27,22 @@ EnterPosBoard::EnterPosBoard(const ColorStyle &style,
 
     this->incl_joker_piece = incl_joker_piece;
 }
+*/
 
 
 void EnterPosBoard::setTurn(bool turn) {
+    /*
     if(turn) {
         this->board.turn = chess::WHITE;
     } else {
         this->board.turn = chess::BLACK;
     }
+    */
 }
 
 void EnterPosBoard::setCastlingRights(bool wking, bool wqueen, bool bking, bool bqueen) {
 
+    /*
     if(wking) {
         this->board.set_castle_wking(true);
     } else {
@@ -61,7 +66,7 @@ void EnterPosBoard::setCastlingRights(bool wking, bool wqueen, bool bking, bool 
     } else {
         this->board.set_castle_bqueen(false);
     }
-
+*/
 }
 
 void EnterPosBoard::calculateBoardSize(int *boardSize, int *squareSize) {
@@ -89,6 +94,7 @@ void EnterPosBoard::resizeEvent(QResizeEvent *) {
 }
 
 void EnterPosBoard::mousePressEvent(QMouseEvent *m) {
+    /*
     int x = m->x();
     int y = m->y();
     if(this->clickedOnPiceceSelector(x,y)) {
@@ -104,6 +110,7 @@ void EnterPosBoard::mousePressEvent(QMouseEvent *m) {
         }
     }
     this->update();
+    */
 }
 
 bool EnterPosBoard::clickedOnBoard(int x, int y) {
@@ -140,6 +147,7 @@ bool EnterPosBoard::clickedOnPiceceSelector(int x, int y) {
 // get selected piece for mouse coordinates
 // mouse coordinates must be on piece selector
 uint8_t EnterPosBoard::getSelectedPiece(int x, int y) {
+    /*
     int boardSize = 0;
     int squareSize = 0;
     this->calculateBoardSize(&boardSize, &squareSize);
@@ -148,6 +156,7 @@ uint8_t EnterPosBoard::getSelectedPiece(int x, int y) {
     x_idx = (x_idx / squareSize);
     y_idx = y_idx/squareSize;
     return this->pickupPieces[y_idx][x_idx];
+    */
 }
 
 // get board position for mouse coordinates
@@ -177,25 +186,29 @@ void EnterPosBoard::calculateBoardSize(int *boardSize, int *squareSize) {
 }*/
 
 void EnterPosBoard::setToInitialPosition() {
-    this->board = chess::Board(true);
+    //this->board = chess::Board(true);
     this->update();
 }
 
 void EnterPosBoard::setToCurrentBoard() {
-    this->board = this->currentGameBoard;
+    //this->board = this->currentGameBoard;
     this->update();
 }
 
 void EnterPosBoard::clearBoard() {
-    this->board = chess::Board();
+    //this->board = chess::Board();
     this->update();
 }
 
+/*
 chess::Board EnterPosBoard::getCurrentBoard() {
     return this->board;
 }
+*/
 
 void EnterPosBoard::drawBoard(QPaintEvent *event, QPainter *painter) {
+
+    /*
 
     // to have no border color when drawing board squares and pieces
     QPen penZero = QPen(Qt::black, 1, Qt::NoPen);
@@ -336,5 +349,7 @@ void EnterPosBoard::drawBoard(QPaintEvent *event, QPainter *painter) {
             painter->drawImage(x,y,*piece_image);
         }
     }
+
+    */
 
 }

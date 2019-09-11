@@ -91,6 +91,7 @@ SearchPattern DialogSearch::getPattern() {
         sp.checkElo = SEARCH_ONE_ELO;
     }
 
+    /*
     sp.result = chess::RES_ANY;
     if(this->ths->btnUndecided->isChecked()) {
         sp.result = chess::RES_UNDEF;
@@ -108,6 +109,7 @@ SearchPattern DialogSearch::getPattern() {
     if(this->ths->btnDraw->isChecked()) {
         sp.result = chess::RES_DRAW;
     }
+    */
 
     // comment search
     //sp.comment_text1 = this->tcs->text1->text();
@@ -163,6 +165,7 @@ void DialogSearch::setPattern(SearchPattern &sp) {
             break;
     }
 
+    /*
     switch(sp.result) {
         case chess::RES_UNDEF:
             this->ths->btnUndecided->setChecked(true);
@@ -177,5 +180,6 @@ void DialogSearch::setPattern(SearchPattern &sp) {
             this->ths->btnDraw->setChecked(true);
             break;
     }
+    */
 
 }

@@ -1,5 +1,5 @@
 #include "database_index_model.h"
-#include "chess/game.h"
+//#include "chess/game.h"
 #include <QFont>
 #include <QDebug>
 
@@ -9,15 +9,19 @@ DatabaseIndexModel::DatabaseIndexModel(QObject *parent)
 
 }
 
+/*
 void DatabaseIndexModel::setDatabase(chess::Database *database)
 {
     this->database = database;
+}*/
+
+
+int DatabaseIndexModel::rowCount(const QModelIndex & ) const
+{
+    //return this->database->getRowCount();
+    return 5;
 }
 
-int DatabaseIndexModel::rowCount(const QModelIndex & /* parent */) const
-{
-    return this->database->getRowCount();
-}
 
 int DatabaseIndexModel::columnCount(const QModelIndex & /* parent */) const
 {
@@ -26,6 +30,7 @@ int DatabaseIndexModel::columnCount(const QModelIndex & /* parent */) const
 
 QVariant DatabaseIndexModel::data(const QModelIndex &index, int role) const
 {
+
     if (!index.isValid())
         return QVariant();
 
@@ -40,7 +45,7 @@ QVariant DatabaseIndexModel::data(const QModelIndex &index, int role) const
         }*/
         // just always align left (same as header)
         return int(Qt::AlignLeft | Qt::AlignVCenter);
-    } else if (role == Qt::DisplayRole) {
+    } /* else if (role == Qt::DisplayRole) {
         int row = index.row();
         //qDebug() << "getting row info at: " << row;
         chess::PgnHeader rowInfo = this->database->getRowInfo(row);
@@ -78,6 +83,7 @@ QVariant DatabaseIndexModel::data(const QModelIndex &index, int role) const
         }
         if(column == 6) {
             return rowInfo.result;
+            */
                     /*
             QString result("");
             if(entry_row->result == chess::RES_WHITE_WINS) {
@@ -90,10 +96,12 @@ QVariant DatabaseIndexModel::data(const QModelIndex &index, int role) const
                 result.append("*");
             }
             return result;*/
+    /*
         }
     } else if(role == Qt::FontRole) {
         int row = index.row();
         chess::PgnHeader rowInfo = this->database->getRowInfo(row);
+        */
         /*
         if(rowInfo.isDeleted) {
             QFont defaultFont;
@@ -101,9 +109,11 @@ QVariant DatabaseIndexModel::data(const QModelIndex &index, int role) const
             defaultFont.setItalic(true);
             return defaultFont;
         }*/
+    /*
         return QVariant();
     }
     return QVariant();
+    */
 }
 
 QVariant DatabaseIndexModel::headerData(int section,

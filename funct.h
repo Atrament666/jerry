@@ -21,7 +21,7 @@
 #ifndef FUNCT_H
 #define FUNCT_H
 #include <QObject>
-#include "chess/board.h"
+//#include "chess/board.h"
 #include "uci/engine_info.h"
 
 
@@ -47,7 +47,7 @@ public:
 
 
 private:
-    int count_moves(Board b, int depth);
+    //int count_moves(Board b, int depth);
     void rwrw_pgn(const QString &fn_in, const QString &fn_out);
 
 signals:

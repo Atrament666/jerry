@@ -18,14 +18,14 @@
  */
 
 #include "edit_controller.h"
-#include "chess/pgn_printer.h"
+//#include "chess/pgn_printer.h"
 #include <QClipboard>
 #include <QApplication>
 #include "dialogs/dialog_enterposition.h"
 #include "dialogs/dialog_editheaders.h"
 #include <QDebug>
 #include <iostream>
-#include "chess/pgn_reader.h"
+//#include "chess/pgn_reader.h"
 
 EditController::EditController(GameModel *gameModel, QWidget *parent) :
     QObject(parent)
@@ -36,22 +36,25 @@ EditController::EditController(GameModel *gameModel, QWidget *parent) :
 
 void EditController::copyGameToClipBoard() {
 
+    /*
     chess::PgnPrinter *pgnPrinter = new chess::PgnPrinter();
     QString pgn = pgnPrinter->printGame(*this->gameModel->getGame()).join("\n");
     QClipboard *clipboard = QApplication::clipboard();
     clipboard->setText(pgn);
-
+    */
 }
 
 void EditController::copyPositionToClipBoard() {
 
+    /*
     QString fen = this->gameModel->getGame()->getCurrentNode()->getBoard().fen();
     QClipboard *clipboard = QApplication::clipboard();
     clipboard->setText(fen);
-
+    */
 }
 
 void EditController::paste() {
+    /*
     QClipboard *clipboard = QApplication::clipboard();
     QString text = clipboard->text();
     // first check whether text is fen string, try to create a board
@@ -74,9 +77,11 @@ void EditController::paste() {
             std::cerr << e.what() << std::endl;
         }
     }
+    */
 }
 
 void EditController::enterPosition() {
+    /*
     chess::Board currentBoard = this->gameModel->getGame()->getCurrentNode()->getBoard();
     DialogEnterPosition *dlg = new DialogEnterPosition(currentBoard,
                                                        *this->gameModel->colorStyle,
@@ -91,9 +96,11 @@ void EditController::enterPosition() {
         //std::cout << this->gameModel->getGame()->getCurrentNode()->getBoard() << "\n";
         this->gameModel->triggerStateChange();
     }
+    */
 }
 
 void EditController::editHeaders() {
+    /*
     DialogEditHeaders *dlg = new DialogEditHeaders(*this->gameModel->getGame(), this->parentWidget);
     if(dlg->exec() == QDialog::Accepted) {
 
@@ -121,4 +128,5 @@ void EditController::editHeaders() {
     }
     delete dlg;
     this->gameModel->triggerStateChange();
+    */
 }

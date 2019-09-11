@@ -21,14 +21,14 @@
 #ifndef GAME_MODEL_H
 #define GAME_MODEL_H
 
-#include "chess/game.h"
-#include "chess/board.h"
-#include "chess/move.h"
+//#include "chess/game.h"
+//#include "chess/board.h"
+//#include "chess/move.h"
 #include "viewController/colorstyle.h"
 #include <QPixmap>
 #include <QList>
-#include "chess/polyglot.h"
-#include "chess/pgn_database.h"
+//#include "chess/polyglot.h"
+//#include "chess/pgn_database.h"
 #include "engine.h"
 #include "model/font_style.h"
 
@@ -60,8 +60,8 @@ public:
     QString lastSaveDir;
     GameModel(QObject *parent = 0);
     ~GameModel();
-    chess::Game* getGame();
-    void setGame(chess::Game *g);
+    //chess::Game* getGame();
+    //void setGame(chess::Game *g);
     void triggerStateChange();
     int getMode();
     void setMode(int mode);
@@ -105,23 +105,23 @@ public:
 
     QString ressourcePath;
 
-    bool canAndMayUseBook(chess::GameNode *node);
-    QVector<chess::Move> getBookMoves(chess::GameNode *node);
-    bool isInBook(chess::GameNode *node);
+    //bool canAndMayUseBook(chess::GameNode *node);
+    //QVector<chess::Move> getBookMoves(chess::GameNode *node);
+    //bool isInBook(chess::GameNode *node);
 
-    chess::PgnDatabase database;
+    //chess::PgnDatabase database;
 
     bool gameAnalysisStarted;
 
-    SearchPattern lastSeenSearchPattern;
+    //SearchPattern lastSeenSearchPattern;
 
     int nrPvLines;
 
 private:
     void loadOpeningBook();
 
-    chess::Polyglot* book;
-    chess::Game *game;
+    //chess::Polyglot* book;
+    //chess::Game *game;
     int mode;
     QVector<Engine> engines;
     //Engine active_engine;

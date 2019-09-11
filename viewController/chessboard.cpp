@@ -10,6 +10,7 @@
 Chessboard::Chessboard(QWidget *parent) :
     QWidget(parent)
 {
+    /*
     QSizePolicy policy = QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     this->setSizePolicy(policy);
 
@@ -38,6 +39,7 @@ Chessboard::Chessboard(QWidget *parent) :
     this->dpr = this->devicePixelRatio();
 
     //this->lastMove = 0;
+    */
 }
 
 // todo: destructor missing (pointer members)
@@ -55,27 +57,32 @@ void Chessboard::calculateBoardSize(int *boardSize, int *squareSize) {
     *squareSize = sSize;
 }
 
+/*
 void Chessboard::setBoard(chess::Board b) {
     this->board = b;
-}
+} */
 
+/*
 void Chessboard::setArrows(QVector<chess::Arrow> arrows) {
     this->currentArrows = arrows;
-}
+} */
 
+/*
 void Chessboard::setColoredFields(QVector<chess::ColoredField> fields) {
     this->currentColoredFields = fields;
-}
+} */
 
+/*
 void Chessboard::setGrabbedArrowFrom(int x, int y) {
     this->grabbedArrow->from.setX(x);
     this->grabbedArrow->from.setY(y);
-}
+} */
 
+/*
 void Chessboard::setGrabbedArrowTo(int x, int y) {
     this->grabbedArrow->to.setX(x);
     this->grabbedArrow->to.setY(y);
-}
+} */
 
 void Chessboard::paintEvent(QPaintEvent *event) {
     QPainter painter; // = new QPainter();
@@ -116,6 +123,8 @@ void Chessboard::setGrabbedPiece(int pieceType, int color) {
 }
 
 void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
+
+    /*
 
     // to have no border color when drawing board squares and pieces
     QPen penZero = QPen(Qt::black, 1, Qt::NoPen);
@@ -317,8 +326,11 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
            this->grabbedArrow->from != this->grabbedArrow->to) {
         this->drawArrow(*this->grabbedArrow, boardOffsetX, boardOffsetY, squareSize, painter);
     }
+
+    */
 }
 
+/*
 void Chessboard::drawArrow(const chess::Arrow &ai, int boardOffsetX,
                                     int boardOffsetY, int squareSize, QPainter *painter) {
     int x_from = 0;
@@ -397,3 +409,4 @@ void Chessboard::drawArrow(const chess::Arrow &ai, int boardOffsetX,
     painter->drawLine(fromPoint,to);
 
 }
+*/

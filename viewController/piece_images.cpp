@@ -21,8 +21,8 @@
 #include <QtSvg/QSvgRenderer>
 #include <QtGui>
 #include "piece_images.h"
-#include "chess/board.h"
-#include "chess/move.h"
+//#include "chess/board.h"
+//#include "chess/move.h"
 #include "colorstyle.h"
 #include <QDebug>
 #include <assert.h>
@@ -51,6 +51,7 @@ PieceImages::PieceImages(QString resourcePath) {
 }
 
 void PieceImages::initSvgs(QHash<int, QSvgRenderer*> *svg_images, QString &pieceType) {
+    /*
     for(int i=1; i<7; i++) {
         for(int j=0; j<2; j++) {
             QString filename = QString(":/res/pieces/");
@@ -82,9 +83,12 @@ void PieceImages::initSvgs(QHash<int, QSvgRenderer*> *svg_images, QString &piece
             svg_images->insert((i*10)+j, ren);
         }
     }
+    */
 }
 
 QImage* PieceImages::getPieceImage(uint8_t piece_type, bool color, int size, qreal dpr, int type) {
+
+    /*
 
     QHash<int, QSvgRenderer*> *svg_images;
     QHash<QString, QImage*> *rendered_svg_images;
@@ -125,4 +129,5 @@ QImage* PieceImages::getPieceImage(uint8_t piece_type, bool color, int size, qre
         rendered_svg_images->insert(idx,img);
         return img;
     }
+    */
 }

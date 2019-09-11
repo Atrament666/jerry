@@ -21,6 +21,7 @@
 
 DialogDatabase::DialogDatabase(GameModel *gameModel, QWidget* parent) :
     QDialog(parent) {
+    /*
     this->gameModel = gameModel;
 
     this->selectedIndex = -1;
@@ -150,6 +151,7 @@ DialogDatabase::DialogDatabase(GameModel *gameModel, QWidget* parent) :
     connect(model, &QItemSelectionModel::selectionChanged,
             this, &DialogDatabase::onRowChanged);
 
+            */
 }
 
 void DialogDatabase::resizeTo(float ratio) {
@@ -174,12 +176,14 @@ void DialogDatabase::resizeTo(float ratio) {
 }
 
 void DialogDatabase::onClickReset() {
+    /*
     this->gameModel->database.resetSearch();
     this->indexModel->layoutChanged();
+    */
 }
 
 void DialogDatabase::onClickSearch() {
-
+    /*
     DialogSearch dlg(this->gameModel, this);
     dlg.setPattern(this->gameModel->lastSeenSearchPattern);
     if(dlg.exec() == QDialog::Accepted) {
@@ -200,7 +204,9 @@ void DialogDatabase::onClickSearch() {
             std::cerr << e.what() << std::endl;
         }
     }
+    */
 }
+
 
 void DialogDatabase::showHelp() {
     DialogDatabaseHelp dlg(this, JERRY_VERSION);
@@ -208,6 +214,7 @@ void DialogDatabase::showHelp() {
 }
 
 void DialogDatabase::onClickNew() {
+    /*
     QString filename = QFileDialog::getSaveFileName(this,
                        tr("Create New Database..."), this->gameModel->lastSaveDir, tr("PGN Files (*.pgn)"));
     if(!filename.isNull()) {
@@ -220,9 +227,11 @@ void DialogDatabase::onClickNew() {
             this->setWindowTitle(filename);
         }
     }
+    */
 }
 
 void DialogDatabase::onClickAppend() {
+    /*
     if(this->gameModel->database.isOpen()) {
         chess::Game *currentGame = this->gameModel->getGame();
         if(this->gameModel->database.appendCurrentGame(*currentGame) < 0) {
@@ -238,10 +247,12 @@ void DialogDatabase::onClickAppend() {
             this->indexModel->layoutChanged();
         }
     }
+    */
 }
 
 void DialogDatabase::onClickOpen() {
 
+    /*
     QString filename = QFileDialog::getOpenFileName(this,
                        QApplication::tr("Open Database"),
                        this->gameModel->lastOpenDir,
@@ -282,7 +293,7 @@ void DialogDatabase::onClickOpen() {
     //this->gameModel->database->open(this);
 
     this->gameTable->resizeColumnsToContents();;
-
+    */
 }
 
 
@@ -301,6 +312,7 @@ void DialogDatabase::onClickExport() {
 }
 
 void DialogDatabase::onRowChanged() {
+    /*
     //qDebug() << "row change";
 
     //QTest::qWait(2000);
@@ -314,4 +326,5 @@ void DialogDatabase::onRowChanged() {
         }
     }
     this->gameTable->resizeColumnsToContents();;
+    */
 }

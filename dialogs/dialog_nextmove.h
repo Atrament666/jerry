@@ -24,7 +24,7 @@
 #include <QDialog>
 #include <QListWidget>
 #include <QPushButton>
-#include "chess/game_node.h"
+//#include "chess/game_node.h"
 
 class DialogNextMove : public QDialog
 {
@@ -32,7 +32,7 @@ class DialogNextMove : public QDialog
 public:
     QListWidget *moveList;
     int selectedIndex;
-    explicit DialogNextMove(chess::GameNode *node, QWidget *parent = 0);
+    //explicit DialogNextMove(chess::GameNode *node, QWidget *parent = 0);
 
 protected:
     void keyPressEvent(QKeyEvent *e);

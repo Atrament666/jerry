@@ -23,14 +23,14 @@
 #include <QFile>
 #include <QTextStream>
 #include <iostream>
-#include "chess/board.h"
-#include "chess/move.h"
+//#include "chess/board.h"
+//#include "chess/move.h"
 #include "funct.h"
-#include "chess/pgn_reader.h"
-#include "chess/pgn_printer.h"
+//#include "chess/pgn_reader.h"
+//#include "chess/pgn_printer.h"
 #include "uci/uci_controller.h"
-#include "chess/polyglot.h"
-#include "chess/pgn_database.h"
+//#include "chess/polyglot.h"
+//#include "chess/pgn_database.h"
 #include "various/resource_finder.h"
 #include <QMutex>
 #include <QDir>
@@ -90,6 +90,7 @@ void FuncT::run_ucit() {
 }
 
 
+/*
 int FuncT::count_moves(Board b, int depth) {
 
     int count = 0;
@@ -125,14 +126,17 @@ int FuncT::count_moves(Board b, int depth) {
     }
 
 }
+*/
 
 void FuncT::rwrw_pgn(const QString &fn_in, const QString &fn_out) {
 
+    /*
     PgnReader* pgn_r = new PgnReader();
     chess::Game* g = pgn_r->readGameFromFile(fn_in,0);
     PgnPrinter* pgn_p = new PgnPrinter();
     //QStringList* pgn = pgn_p->printGame(g);
     pgn_p->writeGame(*g, fn_out);
+    */
 
 }
 /*
@@ -165,6 +169,7 @@ void FuncT::run_pgn_scant() {
 }
 */
 
+/*
 void FuncT::run_pgn_parse_speedtest() {
 
     chess::PgnDatabase db;
@@ -182,7 +187,9 @@ void FuncT::run_pgn_parse_speedtest() {
 
     qDebug() << "pgn parse speed test finished.";
 }
+*/
 
+/*
 void FuncT::run_pgn_speedtest() {
     chess::PgnReader reader;
     QFile file;
@@ -197,6 +204,7 @@ void FuncT::run_pgn_speedtest() {
     qDebug() << offsets.at(1000000).header.white;
     qDebug() << offsets.at(100000000).header.white;
     //QString complete_file = reader.readFileIntoString(filename, encoding);
+    */
     /*
     QVector<qint64> offsets = reader.scanPgn(filename, false);
     //QVector<PgnHeaderOffset> foo = reader.scan_headers(filename, encoding);
@@ -213,9 +221,11 @@ void FuncT::run_pgn_speedtest() {
     qDebug() << game1.event;
     qDebug() << game2.event;
     qDebug() << game3.event;
-    */
-}
 
+}
+*/
+
+/*
 void FuncT::run_pgnt() {
 
     std::cout << "reading complex.pgn..." << std::endl;
@@ -267,10 +277,11 @@ void FuncT::run_pgnt() {
     QString l3 = QString("C://Users//user//MyFiles//workspace//jerry//data/lichess_test2.pgn");
     this->rwrw_pgn(l1,l2);
     this->rwrw_pgn(l2,l3);
-
 }
+*/
 
 void FuncT::run_sant() {
+    /*
     // some san tests
     Board b0 = Board(QString("rnbqkbnr/pppppppp/8/2R5/5R2/2R5/PPPPPPP1/1NBQKBN1 w - - 0 1"));
     QVector<Move> lgl_b0 = b0.legal_moves();
@@ -306,11 +317,14 @@ void FuncT::run_sant() {
         Move mi2 = b2.parse_san(san);
         std::cout << "  UCI again: " << mi2.uci().toStdString() << std::endl;
     }
+    */
 }
 
 void FuncT::run_polyglot() {
     //QString foo = QString("/home/user/workspace/build-jerry3-Desktop-Release/books/varied.bin");
     //
+
+    /*
 
     Board *b = new Board(QString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
     QString path = ResourceFinder::getPath().append("/books/");
@@ -392,6 +406,8 @@ void FuncT::run_polyglot() {
         qDebug() << "move: " << uci;
     }
     delete b;
+
+    */
 }
 
 void FuncT::run_rand() {
@@ -406,6 +422,7 @@ void FuncT::run_rand() {
 
 void FuncT::run_pertf() {
 
+    /*
     // initial position tests, perft 1 - 6
     Board b = Board(QString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
     std::cout << "Testing " << b.fen().toStdString() << std::endl;
@@ -445,6 +462,8 @@ void FuncT::run_pertf() {
     std::cout << "perft 5: " << std::endl;
     std::cout << f_secs.count() << std::endl;
 
+    */
+
     /*
     b = Board(QString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
     std::cout << "Testing " << b.fen().toStdString() << std::endl;
@@ -454,6 +473,7 @@ void FuncT::run_pertf() {
 */
 
 
+    /*
     // "Kiwipete" by Peter McKenzie, great for identifying bugs
     // perft 1 - 5
     b = Board(QString("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0"));
@@ -567,11 +587,12 @@ void FuncT::run_pertf() {
     std::cout << "Perft 5, expected: 193690690" << std::endl;
     c = count_moves(b,4);
     std::cout << "         computed: " << c << "//n" << std::endl;
-
+*/
 }
 
 void FuncT::run_zobrist_test() {
 
+    /*
         chess::Board *b = new Board(QString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
         quint64 key = b->zobrist();
         std::cout << "expected: 463b96181691fc9c" << std::endl;
@@ -625,7 +646,7 @@ void FuncT::run_zobrist_test() {
         std::cout << "expected: 5c3f9b829b279560" << std::endl;
         std::cout << "got     : " << std::hex << key << std::dec << std::endl << std::endl;
         delete b;
-
+*/
 }
 
 }

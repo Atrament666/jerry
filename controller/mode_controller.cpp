@@ -25,8 +25,8 @@
 #include "dialogs/dialog_engines.h"
 #include "dialogs/dialog_gameanalysis.h"
 #include "various/messagebox.h"
-#include "chess/game_node.h"
-#include "chess/game.h"
+//#include "chess/game_node.h"
+//#include "chess/game.h"
 #include <stdlib.h>
 #ifdef __APPLE__
 #include <math.h>
@@ -63,6 +63,7 @@ void ModeController::onEval(float eval) {
 }
 
 void ModeController::onBestMove(QString uci_move) {
+    /*
     if(this->gameModel->getMode() == MODE_PLAY_BLACK ||
             this->gameModel->getMode() == MODE_PLAY_WHITE ||
             this->gameModel->getMode() == MODE_PLAYOUT_POS) {
@@ -168,6 +169,7 @@ void ModeController::onBestMove(QString uci_move) {
         this->gameModel->currentMateInMoves = -1;
         this->gameModel->triggerStateChange();
     }
+    */
 }
 
 
@@ -203,6 +205,7 @@ void ModeController::onSetEnginesClicked() {
 }
 
 void ModeController::onOptionsClicked() {
+    /*
     ColorStyle *newColorStyle = new ColorStyle(*this->gameModel->colorStyle);
     FontStyle *newFontStyle = new FontStyle(*this->gameModel->fontStyle);
     DialogGuiOptions *dlg = new DialogGuiOptions(newColorStyle, newFontStyle, this->parentWidget);
@@ -219,6 +222,7 @@ void ModeController::onOptionsClicked() {
         delete newFontStyle;
     }
     delete dlg;
+    */
 }
 
 void ModeController::onStateChangeEnterMoves() {
@@ -227,17 +231,19 @@ void ModeController::onStateChangeEnterMoves() {
 
 void ModeController::onStateChangeAnalysis() {
 
+    /*
     QString fen = this->gameModel->getGame()->getCurrentNode()->getBoard().fen();
     this->uci_controller->uciSendCommand("stop");
     this->uci_controller->uciSendFen(fen);
     QString position = QString("position fen ").append(fen);
     this->uci_controller->uciSendPosition(position);
     this->uci_controller->uciGoInfinite();
-
+    */
 }
 
 void ModeController::onStateChangeGameAnalysis() {
 
+    /*
     MessageBox *msg = new MessageBox(this->parentWidget);
     // go to the parent node, if there is any. if root, then abort
     chess::GameNode *parent = this->gameModel->getGame()->getCurrentNode()->getParent();
@@ -268,6 +274,7 @@ void ModeController::onStateChangeGameAnalysis() {
         this->uci_controller->uciGoMovetime(this->gameModel->engineThinkTimeMs);
     }
     delete msg;
+    */
 }
 
 void ModeController::onMultiPVChanged(int nrLines) {
@@ -314,6 +321,7 @@ void ModeController::onActivateEnterMovesMode() {
 }
 
 void ModeController::onActivatePlayWhiteMode() {
+    /*
     // first change gamestate and reset engine
     this->uci_controller->uciSendCommand("quit");
     QString engine_path = this->gameModel->getActiveEngine().getPath();
@@ -330,9 +338,11 @@ void ModeController::onActivatePlayWhiteMode() {
     this->gameModel->flipBoard = false;
     this->gameModel->humanPlayerColor = chess::WHITE;
     this->gameModel->triggerStateChange();
+    */
 }
 
 void ModeController::onActivatePlayBlackMode() {
+    /*
     // first change gamestate and reset engine
     this->uci_controller->uciSendCommand("quit");
     QString engine_path = this->gameModel->getActiveEngine().getPath();
@@ -349,11 +359,12 @@ void ModeController::onActivatePlayBlackMode() {
     this->gameModel->humanPlayerColor = chess::BLACK;
     this->gameModel->flipBoard = true;
     this->gameModel->triggerStateChange();
-
+    */
 }
 
 void ModeController::onActivateGameAnalysisMode() {
 
+    /*
     bool run = false;
     DialogGameanalysis *dlg = new DialogGameanalysis(this->gameModel->engineThinkTimeMs,
                                                      this->gameModel->analysisThreshold);
@@ -395,9 +406,11 @@ void ModeController::onActivateGameAnalysisMode() {
         this->gameModel->gameAnalysisStarted = true;
         this->gameModel->triggerStateChange();
     }
+    */
 }
 
 void ModeController::onStateChangePlayWhiteOrBlack() {
+    /*
     // first check if we can apply a bookmove
     chess::GameNode *current = this->gameModel->getGame()->getCurrentNode();
     bool usedBook = false;
@@ -420,6 +433,7 @@ void ModeController::onStateChangePlayWhiteOrBlack() {
     } else {
         this->onBestMove(uci);
     }
+    */
 }
 
 void ModeController::onActivatePlayoutPositionMode() {
@@ -438,14 +452,17 @@ void ModeController::onActivatePlayoutPositionMode() {
 }
 
 void ModeController::onStateChangePlayoutPosition() {
+    /*
     QString fen = this->gameModel->getGame()->getCurrentNode()->getBoard().fen();
     this->uci_controller->uciSendFen(fen);
     QString position = QString("position fen ").append(fen);
     this->uci_controller->uciSendPosition(position);
     this->uci_controller->uciGoMovetime(this->gameModel->engineThinkTimeMs);
+    */
 }
 
 void ModeController::onStateChange() {
+    /*
     int mode = this->gameModel->getMode();
     int turn = this->gameModel->getGame()->getCurrentNode()->getBoard().turn;
 
@@ -521,4 +538,5 @@ void ModeController::onStateChange() {
         this->onStateChangeGameAnalysis();
     }
     delete msg;
+    */
 }

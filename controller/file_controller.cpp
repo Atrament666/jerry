@@ -25,8 +25,8 @@
 #include <QPainter>
 #include <QDebug>
 #include <iostream>
-#include "chess/pgn_printer.h"
-#include "chess/pgn_reader.h"
+//#include "chess/pgn_printer.h"
+//#include "chess/pgn_reader.h"
 #include "dialogs/dialog_newgame.h"
 #include "dialogs/dialog_browseheaders.h"
 #include "dialogs/dialog_database.h"
@@ -43,6 +43,7 @@ FileController::FileController(GameModel *gameModel, QWidget *parent) :
 
 
 void FileController::printGame() {
+    /*
     QPrinter printer;
     QPrintDialog *dlg = new QPrintDialog(&printer, this->parentWidget);
     dlg->setWindowTitle(tr("Print Game"));
@@ -55,9 +56,11 @@ void FileController::printGame() {
         delete pgnPrinter;
     }
     delete dlg;
+    */
 }
 
 void FileController::printPosition() {
+    /*
     QPrinter printer;
     QPrintDialog *dlg = new QPrintDialog(&printer, this->parentWidget);
     dlg->setWindowTitle(tr("Print FEN"));
@@ -68,6 +71,7 @@ void FileController::printPosition() {
         delete textEdit;
     }
     delete dlg;
+    */
 }
 
 /*
@@ -83,6 +87,7 @@ void FileController::printPosition() {
  *
  */
 void FileController::newGame() {
+    /*
 
     // internal engine is always at 0, so otherwise we have a custom engine
     bool customEngine = this->gameModel->getActiveEngineIdx() != 0;
@@ -112,6 +117,7 @@ void FileController::newGame() {
         }
     }
     delete dlg;
+    */
 }
 
 void FileController::openGame() {
@@ -126,6 +132,7 @@ void FileController::openGame() {
 }
 
 void FileController::openGameFrom(QString &path, QString &absoluteFilename, bool reOpen) {
+    /*
     chess::PgnReader reader;
     //qDebug() << "open Game From";
     try {
@@ -157,20 +164,24 @@ void FileController::openGameFrom(QString &path, QString &absoluteFilename, bool
     } catch(std::exception e) {
         std::cerr << e.what() << std::endl;
     }
+    */
 }
 
+/*
 void FileController::setupNewGame(chess::Game* g) {
     //delete this->gameModel->getGame();
     this->gameModel->setGame(g);
     this->gameModel->getGame()->setTreeWasChanged(true);
     this->gameModel->triggerStateChange();
 }
+*/
 
 void FileController::saveGame() {
     this->saveGameTo(this->gameModel->lastSaveFilename);
 }
 
 void FileController::saveGameTo(QString &filename) {
+    /*
     chess::PgnPrinter *pgn = new chess::PgnPrinter();
     try {
         pgn->writeGame(*this->gameModel->getGame(), filename);
@@ -181,6 +192,7 @@ void FileController::saveGameTo(QString &filename) {
         delete msg;
         this->gameModel->triggerStateChange();
     }
+    */
 }
 
 void FileController::toolbarSaveGame() {
@@ -215,6 +227,7 @@ void FileController::toolbarOpenCurrentPGN()  {
 
 void FileController::openInCurrentPgnAt(int idx) {
 
+    /*
     QString absoluteFilename = this->gameModel->currentPgnFilename;
     QString path = this->gameModel->lastOpenDir;
 
@@ -247,10 +260,12 @@ void FileController::openInCurrentPgnAt(int idx) {
     catch(std::exception e) {
         std::cerr << e.what() << std::endl;
     }
+    */
 }
 
 void FileController::openDatabase() {
 
+    /*
     DialogDatabase *dlg = new DialogDatabase(this->gameModel, this->parentWidget);    
     if(dlg->exec() == QDialog::Accepted && dlg->selectedIndex >= 0) {
             chess::Game* selected_game = this->gameModel->database.getGameAt(dlg->selectedIndex);
@@ -260,10 +275,11 @@ void FileController::openDatabase() {
         }
     delete dlg;
     this->gameModel->triggerStateChange();
-
+    */
 }
 
 void FileController::toolbarNextGameInPGN() {
+    /*
     int idx = this->gameModel->database.getLastSelectedIndex() + 1;
     if(idx < this->gameModel->database.countGames()) {
         chess::Game* selected_game = this->gameModel->database.getGameAt(idx);
@@ -272,9 +288,11 @@ void FileController::toolbarNextGameInPGN() {
         this->gameModel->getGame()->setTreeWasChanged(true);
         this->gameModel->triggerStateChange();
     }
+    */
 }
 
 void FileController::toolbarPrevGameInPGN() {
+    /*
     int idx = this->gameModel->database.getLastSelectedIndex() - 1;
     if(idx >= 0) {
         chess::Game* selected_game = this->gameModel->database.getGameAt(idx);
@@ -283,4 +301,5 @@ void FileController::toolbarPrevGameInPGN() {
         this->gameModel->getGame()->setTreeWasChanged(true);
         this->gameModel->triggerStateChange();
     }
+    */
 }

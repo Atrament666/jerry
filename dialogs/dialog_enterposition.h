@@ -2,7 +2,7 @@
 #define DIALOG_ENTERPOSITION_H
 
 #include <QDialog>
-#include "chess/board.h"
+//#include "chess/board.h"
 #include "viewController/colorstyle.h"
 #include "viewController/piece_images.h"
 #include "viewController/enterposboard.h"
@@ -15,10 +15,10 @@ class DialogEnterPosition : public QDialog
 {
     Q_OBJECT
 public:
-    explicit DialogEnterPosition(const chess::Board &board, const ColorStyle &style,
-                                 QWidget *parent = 0);
+    //explicit DialogEnterPosition(const chess::Board &board, const ColorStyle &style,
+    //                             QWidget *parent = 0);
 
-    chess::Board getCurrentBoard();
+    //chess::Board getCurrentBoard();
 
 private:
     void resizeTo(float ratio);

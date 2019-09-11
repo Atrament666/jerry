@@ -23,10 +23,10 @@
 #include <QGridLayout>
 #include <QSizePolicy>
 #include "dialog_nextmove.h"
-#include "chess/move.h"
-#include "chess/game_node.h"
+//#include "chess/move.h"
+//#include "chess/game_node.h"
 
-
+/*
 DialogNextMove::DialogNextMove(chess::GameNode *node, QWidget *parent) :
     QDialog(parent)
 {
@@ -62,7 +62,7 @@ DialogNextMove::DialogNextMove(chess::GameNode *node, QWidget *parent) :
     //this->moveList->setSizePolicy(QSizePolicy::Minimum);
     //this->setMinimumWidth(this->moveList->size().width());
     //this->setMaximumWidth(this->moveList->size().height());
-
+/*
     connect(buttonBox, &QDialogButtonBox::accepted, this, &DialogNextMove::accept);
     connect(buttonBox, &QDialogButtonBox::rejected, this, &DialogNextMove::reject);
     connect(this->moveList, &QListWidget::itemDoubleClicked, this, &DialogNextMove::accept);
@@ -70,7 +70,7 @@ DialogNextMove::DialogNextMove(chess::GameNode *node, QWidget *parent) :
     connect(this, &DialogNextMove::okSelected, this, &DialogNextMove::accept);
     connect(this, &DialogNextMove::cancelSelected, this, &DialogNextMove::reject);
 
-/*
+
     self.connect(buttonBox, SIGNAL("accepted()"),
              self, SLOT("accept()"))
     self.connect(buttonBox, SIGNAL("rejected()"),
@@ -81,8 +81,9 @@ DialogNextMove::DialogNextMove(chess::GameNode *node, QWidget *parent) :
 
     self.listWidget.itemDoubleClicked.connect(self.accept)
     self.listWidget.currentItemChanged.connect(self.on_item_changed)
-*/
+
 }
+*/
 
 void DialogNextMove::onItemChanged() {
     this->selectedIndex = this->moveList->currentRow();

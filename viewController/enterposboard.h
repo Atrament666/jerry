@@ -8,12 +8,12 @@ class EnterPosBoard : public QWidget
     Q_OBJECT
 
 public:
-    explicit EnterPosBoard(const ColorStyle &style, const chess::Board &board,
-                           QWidget *parent = 0, bool incl_joker_piece = false);
+    //explicit EnterPosBoard(const ColorStyle &style, const chess::Board &board,
+    //                       QWidget *parent = 0, bool incl_joker_piece = false);
     void setToInitialPosition();
     void setToCurrentBoard();
     void clearBoard();
-    chess::Board getCurrentBoard();
+    //chess::Board getCurrentBoard();
     void setCastlingRights(bool wking, bool wqueen, bool bking, bool bqueen);
     void setTurn(bool turn);
 private:
@@ -21,8 +21,8 @@ private:
     ColorStyle style;
     int borderWidth;
     PieceImages *pieceImages;
-    chess::Board board { true };
-    chess::Board currentGameBoard;
+    //chess::Board board { true };
+    //chess::Board currentGameBoard;
     double dpr = 1.0;
 
     bool clickedOnBoard(int x, int y);
@@ -40,6 +40,7 @@ private:
     //void calculateBoardSize(int *boardSize, int *squareSize);
     void resizeTo(float ratio);
 
+    /*
     uint8_t pickupPieces[7][2] = {{chess::WHITE_PAWN, chess::BLACK_PAWN},
                                   {chess::WHITE_KNIGHT, chess::BLACK_KNIGHT},
                                   {chess::WHITE_BISHOP, chess::BLACK_BISHOP},
@@ -47,6 +48,7 @@ private:
                                   {chess::WHITE_QUEEN, chess::BLACK_QUEEN},
                                   {chess::WHITE_KING, chess::BLACK_KING},
                                   {chess::WHITE_ANY_PIECE, chess::BLACK_ANY_PIECE}};
+    */
     uint8_t selectedPiece;
 
 protected:

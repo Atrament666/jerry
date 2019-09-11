@@ -22,8 +22,8 @@
 #include <QObject>
 #include <QList>
 #include <iostream>
-#include "chess/board.h"
-#include "chess/move.h"
+//#include "chess/board.h"
+//#include "chess/move.h"
 #include <bitset>
 #include "funct.h"
 #include "main_window.h"

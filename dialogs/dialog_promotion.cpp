@@ -22,7 +22,7 @@
 #include <QMouseEvent>
 #include <QKeySequence>
 #include "dialog_promotion.h"
-#include "chess/board.h"
+//#include "chess/board.h"
 #include "viewController/piece_images.h"
 #include <QDebug>
 #include <QDesktopWidget>
@@ -34,6 +34,7 @@ DialogPromotion::DialogPromotion(bool color, QWidget *parent) :
     QDialog(parent)
 
 {
+    /*
     this->setWindowTitle(this->tr("Promotion"));
     this->resizeTo(0.15);
 
@@ -51,6 +52,7 @@ DialogPromotion::DialogPromotion(bool color, QWidget *parent) :
     this->selectedIndex = 0;
 
     this->img = new PieceImages(ResourceFinder::getPath());
+    */
 }
 
 void DialogPromotion::resizeTo(float ratio) {
@@ -133,6 +135,7 @@ void DialogPromotion::keyPressEvent(QKeyEvent *e) {
 }
 
 uint8_t DialogPromotion::piecetype_by_idx(int idx) {
+    /*
     assert(idx >= 0 && idx <= 3);
     uint8_t piece;
     switch(idx) {
@@ -150,4 +153,5 @@ uint8_t DialogPromotion::piecetype_by_idx(int idx) {
             break;
     }
     return piece;
+    */
 }

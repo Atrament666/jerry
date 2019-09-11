@@ -19,8 +19,8 @@
 
 
 #include "engine_info.h"
-#include "chess/board.h"
-#include "chess/move.h"
+//#include "chess/board.h"
+//#include "chess/move.h"
 #include <iostream>
 #include <QDebug>
 
@@ -44,12 +44,13 @@ EngineInfo::EngineInfo()
         this->mate[i] = 0;
         this->seesMate[i] = false;
     }
-    this->turn = chess::WHITE;
+    //this->turn = chess::WHITE;
     this->fen = QString("");
     this->nrPvLines = 1;
 }
 
 void EngineInfo::update(QString engine_feedback, QString fen) {
+    /*
 
     int multi_pv = 0;
     // update turn
@@ -142,10 +143,13 @@ void EngineInfo::update(QString engine_feedback, QString fen) {
             this->id = m_id.captured(0).mid(8,len-1).split("\n").at(0);
         }
     }
+    */
 }
 
 // update san for current pv & fen string
 void EngineInfo::updateSan(int multiPvIndex) {
+
+    /*
 
     //qDebug() << "update san start";
     if(this->pv_list.count()!=0 && !this->fen.isEmpty()) {
@@ -173,6 +177,7 @@ void EngineInfo::updateSan(int multiPvIndex) {
         }
 
     }
+    */
 }
 
 QString EngineInfo::toString() {
