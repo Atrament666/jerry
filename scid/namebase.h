@@ -21,6 +21,7 @@
 
 #include "common.h"
 #include "misc.h"
+#include "error.h"
 #include <algorithm>
 #include <map>
 #include <memory>

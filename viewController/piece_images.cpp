@@ -36,9 +36,10 @@ PieceImages::PieceImages(QString resourcePath) {
     QString uscf = QString("uscf");
     QString old = QString("old");
 
-    this->svg_images_merida = new QHash<int, QSvgRenderer*>();
-    this->svg_images_old = new QHash<int, QSvgRenderer*>();
-    this->svg_images_uscf = new QHash<int, QSvgRenderer*>();
+    this->svg_images_merida = new QHash<std::pair<pieceT,colorT>, QSvgRenderer*>();
+
+    this->svg_images_old = new QHash<std::pair<pieceT,colorT>, QSvgRenderer*>();
+    this->svg_images_uscf = new QHash<std::pair<pieceT,colorT>, QSvgRenderer*>();
 
     this->initSvgs(svg_images_merida, merida);
     this->initSvgs(svg_images_old, old);
@@ -50,47 +51,101 @@ PieceImages::PieceImages(QString resourcePath) {
 
 }
 
-void PieceImages::initSvgs(QHash<int, QSvgRenderer*> *svg_images, QString &pieceType) {
-    /*
-    for(int i=1; i<7; i++) {
-        for(int j=0; j<2; j++) {
-            QString filename = QString(":/res/pieces/");
-            filename.append(pieceType);
-            filename.append("/");
-            if(j == chess::BLACK) {
-                filename.append("b");
-            } else {
-                filename.append("w");
-            }
-            if(i == chess::PAWN) {
-                filename.append("p");
-            } else if(i==chess::KNIGHT) {
-                filename.append("n");
-            } else if(i==chess::BISHOP) {
-                filename.append("b");
-            } else if(i==chess::ROOK) {
-                filename.append("r");
-            } else if(i==chess::QUEEN) {
-                filename.append("q");
-            } else if(i==chess::KING) {
-                filename.append("k");
-            } else if(i==chess::ANY_PIECE) {
-                filename.append("a");
-            }
-            filename.append(".svg");
-            QSvgRenderer *ren = new QSvgRenderer();
-            ren->load(filename);
-            svg_images->insert((i*10)+j, ren);
-        }
-    }
-    */
+void PieceImages::initSvgs(QHash<std::pair<pieceT,colorT>, QSvgRenderer*> *svg_images, QString &pieceStyle) {
+
+    QString filename = QString(":/res/pieces/");
+    filename.append(pieceStyle);
+    filename.append("/");
+
+    QString fn_ba = filename.append("ba.svg");
+    QString fn_wa = filename.append("wa.svg");
+
+    QString fn_bp = filename.append("bp.svg");
+    QString fn_wp = filename.append("wp.svg");
+
+    QString fn_br = filename.append("br.svg");
+    QString fn_wr = filename.append("wr.svg");
+
+    QString fn_bn = filename.append("bn.svg");
+    QString fn_wn = filename.append("wn.svg");
+
+    QString fn_bb = filename.append("bb.svg");
+    QString fn_wb = filename.append("wb.svg");
+
+    QString fn_bq = filename.append("bq.svg");
+    QString fn_wq = filename.append("wq.svg");
+
+    QString fn_bk = filename.append("bk.svg");
+    QString fn_wk = filename.append("wk.svg");
+
+    QSvgRenderer *ren_ba = new QSvgRenderer();
+    QSvgRenderer *ren_wa = new QSvgRenderer();
+
+    QSvgRenderer *ren_bp = new QSvgRenderer();
+    QSvgRenderer *ren_wp = new QSvgRenderer();
+
+    QSvgRenderer *ren_br = new QSvgRenderer();
+    QSvgRenderer *ren_wr = new QSvgRenderer();
+
+    QSvgRenderer *ren_bn = new QSvgRenderer();
+    QSvgRenderer *ren_wn = new QSvgRenderer();
+
+    QSvgRenderer *ren_bb = new QSvgRenderer();
+    QSvgRenderer *ren_wb = new QSvgRenderer();
+
+    QSvgRenderer *ren_bq = new QSvgRenderer();
+    QSvgRenderer *ren_wq = new QSvgRenderer();
+
+    QSvgRenderer *ren_bk = new QSvgRenderer();
+    QSvgRenderer *ren_wk = new QSvgRenderer();
+
+    ren_ba->load(fn_ba);
+    ren_wa->load(fn_wa);
+
+    ren_ba->load(fn_bp);
+    ren_wa->load(fn_wp);
+
+    ren_ba->load(fn_br);
+    ren_wa->load(fn_wr);
+
+    ren_ba->load(fn_bn);
+    ren_wa->load(fn_wn);
+
+    ren_ba->load(fn_bb);
+    ren_wa->load(fn_wb);
+
+    ren_ba->load(fn_bq);
+    ren_wa->load(fn_wq);
+
+    ren_ba->load(fn_bk);
+    ren_wa->load(fn_wk);
+
+    svg_images->insert(std::pair(INVALID_PIECE, BLACK), ren_ba);
+    svg_images->insert(std::pair(INVALID_PIECE, WHITE), ren_wa);
+
+    svg_images->insert(std::pair(PAWN, BLACK), ren_bp);
+    svg_images->insert(std::pair(PAWN, WHITE), ren_wp);
+
+    svg_images->insert(std::pair(ROOK, BLACK), ren_br);
+    svg_images->insert(std::pair(ROOK, WHITE), ren_wr);
+
+    svg_images->insert(std::pair(KNIGHT, BLACK), ren_bn);
+    svg_images->insert(std::pair(KNIGHT, WHITE), ren_wn);
+
+    svg_images->insert(std::pair(BISHOP, BLACK), ren_bb);
+    svg_images->insert(std::pair(BISHOP, WHITE), ren_wb);
+
+    svg_images->insert(std::pair(QUEEN, BLACK), ren_bq);
+    svg_images->insert(std::pair(QUEEN, WHITE), ren_wq);
+
+    svg_images->insert(std::pair(KING, BLACK), ren_bk);
+    svg_images->insert(std::pair(KING, WHITE), ren_wk);
 }
 
-QImage* PieceImages::getPieceImage(uint8_t piece_type, bool color, int size, qreal dpr, int type) {
+QImage* PieceImages::getPieceImage(pieceT piece_type, colorT color, int size, qreal dpr, int type) {
 
-    /*
 
-    QHash<int, QSvgRenderer*> *svg_images;
+    QHash<std::pair<pieceT, colorT>, QSvgRenderer*> *svg_images;
     QHash<QString, QImage*> *rendered_svg_images;
     if(type == PIECE_STYLE_OLD) {
         svg_images = this->svg_images_old;
@@ -114,20 +169,14 @@ QImage* PieceImages::getPieceImage(uint8_t piece_type, bool color, int size, qre
         QPainter *painter = new QPainter();
         assert(!img->isNull());
         painter->begin(img);
-        if(color == chess::BLACK) {
-            QSvgRenderer *ren = svg_images->value((piece_type*10)+1);
-            assert(ren != 0);
-            ren->render(painter);
-        } else {
-            QSvgRenderer *ren = svg_images->value((piece_type*10));
-            assert(ren != 0);
-            ren->render(painter);
-        }
+        QSvgRenderer *ren = svg_images->value(std::pair(piece_type, color));
+        assert(ren != 0);
+        ren->render(painter);
         painter->end();
         img->setDevicePixelRatio(dpr);
         delete painter;
         rendered_svg_images->insert(idx,img);
         return img;
     }
-    */
+
 }

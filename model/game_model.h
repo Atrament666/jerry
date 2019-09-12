@@ -28,6 +28,7 @@
 #include <QPixmap>
 #include <QList>
 //#include "chess/polyglot.h"
+#include "scid/game.h"
 //#include "chess/pgn_database.h"
 #include "engine.h"
 #include "model/font_style.h"
@@ -61,6 +62,7 @@ public:
     GameModel(QObject *parent = 0);
     ~GameModel();
     //chess::Game* getGame();
+    Game g;
     //void setGame(chess::Game *g);
     void triggerStateChange();
     int getMode();

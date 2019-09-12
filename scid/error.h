@@ -22,8 +22,8 @@ typedef   unsigned short   errorT;
 const errorT
     OK = 0,
 
-    // General Error:
-    ERROR               =   1,
+    // General Errors
+    ERROR_General       =   1,
     ERROR_UserCancel    =   2,
     ERROR_BadArg        =   3,
     

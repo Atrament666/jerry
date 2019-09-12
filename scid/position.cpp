@@ -1805,7 +1805,7 @@ errorT
 Position::RelocatePiece (squareT fromSq, squareT toSq)
 {
     // Must have on-board squares:
-    if (fromSq == NS ||  toSq == NS) { return ERROR; }
+    if (fromSq == NS ||  toSq == NS) { return ERROR_General; }
 
     // If squares are identical, just return success:
     if (fromSq == toSq) { return OK; }
@@ -1815,12 +1815,12 @@ Position::RelocatePiece (squareT fromSq, squareT toSq)
     colorT pcolor = piece_Color(piece);
 
     // Must be relocating a nonempty piece to an empty square:
-    if (piece == EMPTY  ||  Board[toSq] != EMPTY) { return ERROR; }
+    if (piece == EMPTY  ||  Board[toSq] != EMPTY) { return ERROR_General; }
 
     // Pawns cannot relocate to the first or last rank:
     if (ptype == PAWN) {
         rankT toRank = square_Rank(toSq);
-        if (toRank == RANK_1  ||  toRank == RANK_8) { return ERROR; }
+        if (toRank == RANK_1  ||  toRank == RANK_8) { return ERROR_General; }
     }
 
     // Locate the piece index in the appropriate list of pieces:
@@ -1839,7 +1839,7 @@ Position::RelocatePiece (squareT fromSq, squareT toSq)
         List[pcolor][index] = fromSq;
         RemoveFromBoard (piece, toSq);
         AddToBoard (piece, fromSq);
-        return ERROR;
+        return ERROR_General;
     }
 
     // Relocation successful:
