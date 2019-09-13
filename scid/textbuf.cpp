@@ -15,6 +15,8 @@
 #include "textbuf.h"
 #include "misc.h"
 
+namespace scid {
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //### TextBuffer::Init(): Initialise the textbuffer.
 void
@@ -234,6 +236,8 @@ TextBuffer::PrintInt (uint i, const char * str)
     char temp[255];
     sprintf(temp, "%d%s", i, str);
     return PrintWord(temp);
+}
+
 }
 
 ///////////////////////////////////////////////////////////////////////////

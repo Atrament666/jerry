@@ -1,87 +1,109 @@
+//////////////////////////////////////////////////////////////////////
+//
+//  FILE:       bytebuf.h
+//              ByteBuffer class.
+//
+//  Part of:    Scid (Shane's Chess Information Database)
+//  Version:    0.2
+//
+//  Notice:     Copyright (c) 1999  Shane Hudson.  All rights reserved.
+//
+//  Author:     Shane Hudson (sgh@users.sourceforge.net)
+//
+//////////////////////////////////////////////////////////////////////
+
+// The ByteBuffer class is used to read and write binary buffers.
+// It is primarily used in Scid for storing in-memory the contents of
+// a game as it is represented on-disk in the gamedata file (gfile).
+
+
+#ifndef SCID_BYTEBUF_H
+#define SCID_BYTEBUF_H
+
+#include "common.h"
+#include <string.h>
+
+namespace scid {
+
+class ByteBuffer
+{
+ private:
+    //----------------------------------
+    //  TextBuffer:  Data Structures
+    //----------------------------------
+
+    uint   ReadPos;
+    uint   ByteCount;
+    uint   BufferSize;
+    byte * Buffer;
+    byte * Current;
+    byte * AllocatedBuffer;
+    byte * ExternalBuffer;
+
+    errorT Err;
+    
+    //----------------------------------
+    //  TextBuffer:  Public Functions
+    //----------------------------------
+ public:
+    ByteBuffer(uint length) : BufferSize(length), AllocatedBuffer(new byte[length]) { Empty(); }
+    ~ByteBuffer() { delete[] AllocatedBuffer; }
+
 /*
- * Copyright (C) 2019  Fulvio Benini.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
- * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
- * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
- * THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * ProvideExternal is super dangerous:
+ * - GFile::ReadGame will change "data" when reading another game
+ * - At that point reading or __writing__ to the bytebuffer will create havoc
+ * For example calling GFile::ReadGame(&bytebuffer, ...) followed by GFile::AddGame(&bytebuffer)
+ * is __very__ bad
  */
+    void ProvideExternal (byte * data, uint length);
 
-/** @file
- * Defines a ByteBuffer class which will act like a std::string_view.
- * The caller must ensure that a ByteBuffer object does not outlive the
- * pointed-to data.
+    errorT Status ()      { return Err; }
+    uint   GetByteCount() { return ByteCount; }
+    void   BackToStart ();
+    void   Skip (uint value);
+    byte   GetByte () {
+        ASSERT(Current != NULL);
+        if (ReadPos >= ByteCount) { Err = ERROR_BufferRead; return 0; }
+        byte b = *Current;
+        Current++; ReadPos++;
+        return b;
+    }
+    void   GetFixedString (char *str, uint length);
+    uint   GetTerminatedString (char **str);
+    void   CopyTo (byte * target) {
+        memcpy( target , Buffer, ByteCount);
+    }
+
+/*
+ * Writing to a bytebuffer is very error-prone
+ * - Empty() must be called to be sure that Buffer points to the internal buffer
+ *   and to clear the Error Flag;
+ * - Status() must be called after every Put
  */
+    void Empty ();
+    void PutByte (byte value) {
+        ASSERT(Current != NULL);
+        ASSERT(Buffer == AllocatedBuffer);
+        if (Buffer == AllocatedBuffer  && ByteCount >= BufferSize) {
+            Err = ERROR_BufferFull; return;
+        }
+        *Current = value;
+        Current++; ByteCount++;
+    }
+    void PutFixedString (const char *str, uint length);
+    void PutTerminatedString (const char *str);
 
-#pragma once
 
-#include "error.h"
-#include <algorithm>
-#include <string_view>
-
-class ByteBuffer {
-	const unsigned char* data_;
-	size_t size_;
-
-public:
-	ByteBuffer(const unsigned char* data, size_t length)
-	    : data_(data), size_(length) {}
-
-	errorT Status() { return data_ ? OK : ERROR_BufferRead; }
-
-	operator bool() const { return data_; }
-
-	/// Reads one byte from the buffer
-	unsigned char GetByte() {
-		if (size_ == 0) {
-			data_ = nullptr;
-			return 0;
-		}
-		--size_;
-		return *data_++;
-	}
-
-	/// Reads a fixed-length string from the buffer.
-	/// @param length: the number of requested bytes. It is adjusted if it
-	///                exceeds the available bytes in the buffer.
-	std::string_view GetFixedString(size_t length) {
-		auto begin = reinterpret_cast<const char*>(data_);
-		if (length <= size_) {
-			data_ += length;
-			size_ -= length;
-		} else {
-			length = size_;
-			data_ = nullptr;
-			size_ = 0;
-		}
-		return {begin, length};
-	}
-
-	/// Reads a null-terminated string from the buffer.
-	const char* GetTerminatedString() {
-		const auto begin = data_;
-		const auto end = data_ + size_;
-		auto it = std::find(begin, end, 0);
-		if (it == end) {
-			data_ = nullptr;
-			size_ = 0;
-			return nullptr;
-		}
-		data_ = ++it;
-		size_ = std::distance(data_, end);
-		return reinterpret_cast<const char*>(begin);
-	}
+private:
+	ByteBuffer(const ByteBuffer&);
+	ByteBuffer& operator=(const ByteBuffer&);
 };
+
+}
+
+#endif  // #ifndef SCID_BYTEBUF_H
+
+//////////////////////////////////////////////////////////////////////
+//  EOF: bytebuf.h
+//////////////////////////////////////////////////////////////////////

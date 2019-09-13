@@ -17,8 +17,8 @@
 #define SCID_DATE_H
 
 #include "common.h"
-#include <algorithm>
-#include <cstdlib>
+
+namespace scid {
 
 // DATE STORAGE FORMAT:
 // In memory, dates are stored in a 32-bit (4-byte) uint, of which only
@@ -43,6 +43,16 @@ const uint  DAY_SHIFT   = 0;
 const uint YEAR_MAX = 2047;  // 2^11 - 1
 
 #define DATE_MAKE(y,m,d) (((y) << YEAR_SHIFT) | ((m) << MONTH_SHIFT) | (d))
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// PUBLIC FUNCTIONS
+
+
+void   date_DecodeToString (dateT date, char * str);
+dateT  date_EncodeFromString (const char * str);
+bool   date_ValidString (const char * str);
+dateT  date_AddMonths (dateT date, int numMonths);
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -81,118 +91,9 @@ date_GetMonthDay (dateT date)
     return (uint) (date & 511);
 }
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// date_DecodeToString(): convert date to PGN tag string.
-inline void
-date_DecodeToString (dateT date, char * str)
-{
-    ASSERT(str != NULL);
-    uint year, month, day;
 
-    year = date_GetYear (date);
-    month = date_GetMonth (date);
-    day = date_GetDay (date);
-
-    if (year == 0) {
-        *str++ = '?'; *str++ = '?'; *str++ = '?'; *str++ = '?';
-    } else {
-        *str++ = '0' + (year / 1000);
-        *str++ = '0' + (year % 1000) / 100;
-        *str++ = '0' + (year % 100) / 10;
-        *str++ = '0' + (year % 10);
-    }
-    *str++ = '.';
-
-    if (month == 0) {
-        *str++ = '?'; *str++ = '?';
-    } else {
-        *str++ = '0' + (month / 10);
-        *str++ = '0' + (month % 10);
-    }
-    *str++ = '.';
-
-    if (day == 0) {
-        *str++ = '?'; *str++ = '?';
-    } else {
-        *str++ = '0' + (day / 10);
-        *str++ = '0' + (day % 10);
-    }
-    *str = 0;
 }
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// date_EncodeFromString(): convert PGN tag string to date.
-//      The date string format is: "yyyy.mm.dd".
-inline dateT
-date_EncodeFromString (const char * str)
-{
-    // Do checks on str's validity as a date string:
-    ASSERT(str != NULL);
-
-    dateT date;
-    uint year, month, day;
-
-    // convert year:
-    year = std::strtoul(str, NULL, 10);
-    if (year > YEAR_MAX) { year = 0; }
-    date = year << YEAR_SHIFT;
-    while (*str != 0  &&  *str != '.') { str++; }
-    if (*str == '.') { str++; }
-
-    // convert month:
-    month = std::strtoul(str, NULL, 10);
-    if (month > 12) { return date; }
-    date |= (month << MONTH_SHIFT);
-    while (*str != 0  &&  *str != '.') { str++; }
-    if (*str == '.') { str++; }
-
-    // convert day:
-    day = std::strtoul(str, NULL, 10);
-    if (day > 31) { return date; }
-    date |= (day << DAY_SHIFT);
-
-    return date;
-}
-
-/**
- * Creates a dateT object from a PGN tag value string.
- * "The Date tag value field always uses a standard ten character format:
- * "YYYY.MM.DD". If the any of the digit fields are not known, then question
- * marks are used in place of the digits."
- * @param str: pointer to the memory containing the tag value.
- * @param len: length of the tag value.
- * @returns the dateT object corresponding to @e str.
- */
-inline dateT date_parsePGNTag(const char* str, size_t len) {
-	char tmp[10] = {0};
-	std::transform(str, str + std::min<size_t>(len, 10), tmp, [](char ch) {
-		return (ch >= '0' && ch <= '9') ? ch - '0' : 0;
-	});
-
-	uint32_t year = tmp[0] * 1000 + tmp[1] * 100 + tmp[2] * 10 + tmp[3];
-	uint32_t month = tmp[5] * 10 + tmp[6];
-	uint32_t day = tmp[8] * 10 + tmp[9];
-
-	if (year > YEAR_MAX)
-		year = 0;
-
-	if (month > 12)
-		month = 0;
-
-	constexpr unsigned char days[] = {31, 31, 28, 31, 30, 31, 30,
-	                                  31, 31, 30, 31, 30, 31};
-	if (day > days[month]) {
-		if (day != 29 || year % 4 || (year % 100 == 0 && year % 400)) {
-			day = 0;
-		}
-	}
-
-	return (year << YEAR_SHIFT) | (month << MONTH_SHIFT) | (day << DAY_SHIFT);
-}
-
-inline dateT date_parsePGNTag(std::pair<const char*, const char*> str) {
-	return date_parsePGNTag(str.first, std::distance(str.first, str.second));
-}
 
 #endif   // #ifndef SCID_DATE_H
 

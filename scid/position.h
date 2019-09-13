@@ -17,8 +17,12 @@
 #define SCID_POSITION_H
 
 #include "common.h"
+#include "misc.h"
 #include "movelist.h"
+#include "tokens.h"
 #include <stdio.h>
+
+namespace scid {
 
 class DString;
 class SquareSet;
@@ -102,9 +106,13 @@ private:
                                     // or pawn move.
     ushort          PlyCounter;
     byte            Castling;       // castling flags
+    bool            StrictCastling; // If false, allow castling after moving
+                                        // the King or Rook.
 
     uint            Hash;           // Hash value.
     uint            PawnHash;       // Pawn structure hash value.
+
+    MoveList        LegalMoves;     // list of legal moves
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //  Position:  Private Functions
@@ -130,45 +138,36 @@ private:
     bool  IsValidEnPassant (squareT from, squareT to);
     void  GenPawnMoves (MoveList * mlist, squareT from, directionT dir,
                         SquareSet * sqset, genMovesT genType);
-
-    void GenCheckEvasions(MoveList* mlist, pieceT mask, genMovesT genType,
-                          SquareList* checkSquares);
-    errorT MatchPawnMove(MoveList* mlist, fyleT fromFyle, squareT to,
-                         pieceT promote);
-
-    errorT ReadMove(simpleMoveT* sm, const char* str, int slen, pieceT p);
-    errorT ReadMoveCastle(simpleMoveT* sm, const char* str, int slen);
-    errorT ReadMovePawn(simpleMoveT* sm, const char* str, int slen, fyleT from);
-    errorT ReadMoveKing(simpleMoveT* sm, const char* str, int slen);
-
+    errorT      AssertPos ();   //  Checks for errors in board etc.
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //  Position:  Public Functions
 public:
-    Position();
+    Position()   { Init(); }
     static const Position& getStdStart();
 
+    void        Init();
     void        Clear();        // No pieces on board
     void        StdStart() { *this = getStdStart(); }
-    bool        IsStdStart() const;
+    bool        IsStdStart();
     errorT      AddPiece (pieceT p, squareT sq);
 
     // Set and Get attributes -- one-liners
     byte        PieceCount (pieceT p)    { return Material[p]; }
-    const byte* GetMaterial() const      { return Material; }
-    void        SetEPTarget (squareT s)  { EPTarget = s; }
-    squareT     GetEPTarget () const     { return EPTarget; }
+    byte *      GetMaterial ()           { return Material; }
+    void        SetEPTarget (squareT s)  { EPTarget = s; LegalMoves.Clear();}
+    squareT     GetEPTarget ()           { return EPTarget; }
+    bool        GetEPFlag ()             { return (EPTarget != NS); }
     void        SetToMove (colorT c)     { ToMove = c; }
-    colorT      GetToMove () const       { return ToMove; }
+    colorT      GetToMove ()             { return ToMove; }
     void        SetPlyCounter (ushort x) { PlyCounter = x; }
-    ushort      GetPlyCounter () const   { return PlyCounter; }
-    ushort      GetFullMoveCount() const { return PlyCounter / 2 + 1; }
+    ushort      GetPlyCounter ()         { return PlyCounter; }
+    ushort      GetFullMoveCount ()      { return PlyCounter / 2 + 1; }
 
     // Methods to get the Board or piece lists -- used in game.cpp to
     // decode moves:
-    const squareT* GetList(colorT c) const { return List[c]; }
     squareT *   GetList (colorT c)    { return List[c]; }
-    uint        GetCount (colorT c) const { return Count[c]; }
+    uint        GetCount (colorT c)   { return Count[c]; }
     uint        TotalMaterial ()      { return Count[WHITE] + Count[BLACK]; }
     uint        NumNonPawns (colorT c) { 
         return Count[c] - Material[piece_Make(c,PAWN)];
@@ -177,10 +176,10 @@ public:
         return (NumNonPawns(WHITE) == 1  &&  NumNonPawns(BLACK) == 1);
     }
     uint        MaterialValue (colorT c);
-    inline uint FyleCount (pieceT p, fyleT f) const {
+    inline uint FyleCount (pieceT p, fyleT f) {
         return NumOnFyle[p][f];
     }
-    inline uint RankCount (pieceT p, rankT r) const {
+    inline uint RankCount (pieceT p, rankT r) {
         return NumOnRank[p][r];
     }
     inline uint LeftDiagCount (pieceT p, leftDiagT diag) {
@@ -192,15 +191,11 @@ public:
     inline uint SquareColorCount (pieceT p, colorT sqColor) {
         return NumOnSquareColor[p][sqColor];
     }
+    uint        GetSquares (pieceT p, SquareList * sqlist);
 
-    const pieceT* GetBoard() const {
-        const_cast<Position*>(this)->Board[COLOR_SQUARE] = COLOR_CHAR[ToMove];
+    pieceT *    GetBoard () {
+        Board[COLOR_SQUARE] = COLOR_CHAR[ToMove];
         return Board;
-    }
-
-    pieceT GetPiece(squareT sq) const {
-        ASSERT(sq < 64);
-        return Board[sq];
     }
 
     // Other one-line methods
@@ -210,16 +205,13 @@ public:
 
     // Castling flags
     inline void SetCastling (colorT c, castleDirT dir, bool flag);
-    bool GetCastling(colorT c, castleDirT dir) const {
-        int b = (c == WHITE) ? 1 : 4;
-        if (dir == KSIDE)
-            b += b;
-        // Now b == 1 or 2 (white flags), or 4 or 8 (black flags)
-        return Castling & b;
-    }
+    bool        GetCastling (colorT c, castleDirT dir);
     inline bool CastlingPossible () { return (Castling ? true : false); }
     byte        GetCastlingFlags () { return Castling; }
-    void        SetCastlingFlags (byte b) { Castling = b; }
+    void        SetCastlingFlags (byte b) { Castling = b; LegalMoves.Clear(); }
+
+    void        SetStrictCastling (bool b) { StrictCastling = b; LegalMoves.Clear(); }
+    bool        GetStrictCastling (void) { return StrictCastling; }
 
     // Hashing
     inline uint HashValue (void) { return Hash; }
@@ -232,11 +224,17 @@ public:
                                SquareSet * sqset, bool capturesOnly);
 
     // Generate all legal moves:
-    void  GenerateMoves (MoveList* mlist, pieceT mask, genMovesT genType, bool maybeInCheck);
+    void  GenerateMoves (MoveList* mlistRes, pieceT mask, genMovesT genType, bool maybeInCheck);
+    void  GenerateMoves () { GenerateMoves (NULL, EMPTY, GEN_ALL_MOVES, true); }
     void  GenerateMoves (MoveList * mlist) { GenerateMoves (mlist, EMPTY, GEN_ALL_MOVES, true); }
     void  GenerateMoves (MoveList * mlist, genMovesT genType) { GenerateMoves (mlist, EMPTY, genType, true); }
     void  GenerateCaptures (MoveList * mlist) { GenerateMoves (mlist, EMPTY, GEN_CAPTURES, true); }
     bool  IsLegalMove (simpleMoveT * sm);
+
+    void        GenCheckEvasions (MoveList * mlist, pieceT mask, genMovesT genType, SquareList * checkSquares);
+    void        MatchLegalMove (MoveList * mlist, pieceT mask, squareT target);
+    errorT      MatchPawnMove (MoveList * mlist, fyleT fromFyle, squareT to, pieceT promote);
+    errorT      MatchKingMove (MoveList * mlist, squareT target);
 
     uint        CalcAttacks (colorT toMove, squareT kingSq, SquareList * squares);
     int         TreeCalcAttacks (colorT toMove, squareT target);
@@ -268,12 +266,15 @@ public:
     void        MakeUCIString (simpleMoveT * sm, char * s);
 	void        CalcSANStrings (sanListT *sanList, sanFlagT flag);
 
-    errorT      ReadCoordMove(simpleMoveT* m, const char* s, int slen, bool reverse);
-    errorT      ParseMove(simpleMoveT* sm, const char* str);
-    errorT      ParseMove(simpleMoveT* sm, const char* begin, const char* end);
+    errorT      ReadCoordMove (simpleMoveT * m, const char * s, bool reverse);
+    errorT      ReadMove (simpleMoveT * m, const char * s, tokenT t);
+    errorT      ParseMove (simpleMoveT * sm, const char * s);
+    errorT      ReadLine (const char * s);
 
     // Board I/O
     void        MakeLongStr (char * str);
+    void        DumpBoard (FILE * fp);
+    void        DumpLists (FILE * fp);
     errorT      ReadFromLongStr (const char * str);
     errorT      ReadFromCompactStr (const byte * str);
     errorT      ReadFromFEN (const char * s);
@@ -282,7 +283,7 @@ public:
     byte        CompactStrFirstByte () {
         return (Board[0] << 4) | Board[1];
     }
-    void        PrintFEN(char* str, uint flags) const;
+    void        PrintFEN (char * str, uint flags);
     void        DumpLatexBoard (DString * dstr, bool flip);
     void        DumpLatexBoard (DString * dstr) {
         DumpLatexBoard (dstr, false);
@@ -319,6 +320,21 @@ Position::SetCastling (colorT c, castleDirT dir, bool flag)
     // Now b = 1 or 2 (white flags), or 4 or 8 (black flags)
     if (flag) { Castling |= b; } else { Castling &= (255-b); }
     return;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Position::GetCastling():
+//      Get a castling flag.
+//
+inline bool
+Position::GetCastling (colorT c, castleDirT dir)
+{
+    byte b = (c==WHITE ? 1 : 4);
+    if (dir == KSIDE) b += b;
+    // Now b == 1 or 2 (white flags), or 4 or 8 (black flags)
+    if (Castling & b) { return true; } else { return false; }
+}
+
 }
 
 #endif  // SCID_POSITION_H

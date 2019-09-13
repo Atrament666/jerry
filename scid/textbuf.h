@@ -19,6 +19,8 @@
 #include "common.h"
 #include <stdio.h>
 
+namespace scid {
+
 class TextBuffer
 {
 private:
@@ -108,6 +110,8 @@ TextBuffer::AddChar (char ch)
     *Current = ch;
     Current++;
     ByteCount++;
+}
+
 }
 
 #endif  // SCID_TEXTBUF_H

@@ -36,10 +36,10 @@ PieceImages::PieceImages(QString resourcePath) {
     QString uscf = QString("uscf");
     QString old = QString("old");
 
-    this->svg_images_merida = new QHash<std::pair<pieceT,colorT>, QSvgRenderer*>();
+    this->svg_images_merida = new QHash<std::pair<scid::pieceT,scid::colorT>, QSvgRenderer*>();
 
-    this->svg_images_old = new QHash<std::pair<pieceT,colorT>, QSvgRenderer*>();
-    this->svg_images_uscf = new QHash<std::pair<pieceT,colorT>, QSvgRenderer*>();
+    this->svg_images_old = new QHash<std::pair<scid::pieceT,scid::colorT>, QSvgRenderer*>();
+    this->svg_images_uscf = new QHash<std::pair<scid::pieceT,scid::colorT>, QSvgRenderer*>();
 
     this->initSvgs(svg_images_merida, merida);
     this->initSvgs(svg_images_old, old);
@@ -51,7 +51,7 @@ PieceImages::PieceImages(QString resourcePath) {
 
 }
 
-void PieceImages::initSvgs(QHash<std::pair<pieceT,colorT>, QSvgRenderer*> *svg_images, QString &pieceStyle) {
+void PieceImages::initSvgs(QHash<std::pair<scid::pieceT,scid::colorT>, QSvgRenderer*> *svg_images, QString &pieceStyle) {
 
     QString filename = QString(":/res/pieces/");
     filename.append(pieceStyle);
@@ -120,32 +120,33 @@ void PieceImages::initSvgs(QHash<std::pair<pieceT,colorT>, QSvgRenderer*> *svg_i
     ren_ba->load(fn_bk);
     ren_wa->load(fn_wk);
 
-    svg_images->insert(std::pair(INVALID_PIECE, BLACK), ren_ba);
-    svg_images->insert(std::pair(INVALID_PIECE, WHITE), ren_wa);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::ANY_PIECE, scid::BLACK), ren_ba);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::ANY_PIECE, scid::WHITE), ren_wa);
 
-    svg_images->insert(std::pair(PAWN, BLACK), ren_bp);
-    svg_images->insert(std::pair(PAWN, WHITE), ren_wp);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::PAWN, scid::BLACK), ren_bp);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::PAWN, scid::WHITE), ren_wp);
 
-    svg_images->insert(std::pair(ROOK, BLACK), ren_br);
-    svg_images->insert(std::pair(ROOK, WHITE), ren_wr);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::ROOK, scid::BLACK), ren_br);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::ROOK, scid::WHITE), ren_wr);
 
-    svg_images->insert(std::pair(KNIGHT, BLACK), ren_bn);
-    svg_images->insert(std::pair(KNIGHT, WHITE), ren_wn);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::KNIGHT, scid::BLACK), ren_bn);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::KNIGHT, scid::WHITE), ren_wn);
 
-    svg_images->insert(std::pair(BISHOP, BLACK), ren_bb);
-    svg_images->insert(std::pair(BISHOP, WHITE), ren_wb);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::BISHOP, scid::BLACK), ren_bb);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::BISHOP, scid::WHITE), ren_wb);
 
-    svg_images->insert(std::pair(QUEEN, BLACK), ren_bq);
-    svg_images->insert(std::pair(QUEEN, WHITE), ren_wq);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::QUEEN, scid::BLACK), ren_bq);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::QUEEN, scid::WHITE), ren_wq);
 
-    svg_images->insert(std::pair(KING, BLACK), ren_bk);
-    svg_images->insert(std::pair(KING, WHITE), ren_wk);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::KING, scid::BLACK), ren_bk);
+    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::KING, scid::WHITE), ren_wk);
 }
 
-QImage* PieceImages::getPieceImage(pieceT piece_type, colorT color, int size, qreal dpr, int type) {
+QImage* PieceImages::getPieceImage(scid::pieceT piece_type, scid::colorT color,
+                                   int size, qreal dpr, int type) {
 
 
-    QHash<std::pair<pieceT, colorT>, QSvgRenderer*> *svg_images;
+    QHash<std::pair<scid::pieceT, scid::colorT>, QSvgRenderer*> *svg_images;
     QHash<QString, QImage*> *rendered_svg_images;
     if(type == PIECE_STYLE_OLD) {
         svg_images = this->svg_images_old;
@@ -169,7 +170,7 @@ QImage* PieceImages::getPieceImage(pieceT piece_type, colorT color, int size, qr
         QPainter *painter = new QPainter();
         assert(!img->isNull());
         painter->begin(img);
-        QSvgRenderer *ren = svg_images->value(std::pair(piece_type, color));
+        QSvgRenderer *ren = svg_images->value(std::pair<scid::pieceT, scid::colorT>(piece_type, color));
         assert(ren != 0);
         ren->render(painter);
         painter->end();

@@ -14,7 +14,7 @@ QT       -= gui
 TARGET = Jerry
 CONFIG   -= console
 CONFIG   += app_bundle
-CONFIG   += c++17
+CONFIG   += c++14
 CONFIG += object_parallel_to_source
 
 
@@ -27,8 +27,16 @@ SOURCES += main.cpp \
     dialogs/tab_font_style.cpp \
     model/font_style.cpp \
     profile/profile.cpp \
+    scid/bytebuf.cpp \
+    scid/date.cpp \
+    scid/dstring.cpp \
     scid/game.cpp \
+    scid/gfile.cpp \
+    scid/matsig.cpp \
+    scid/mfile.cpp \
     scid/misc.cpp \
+    scid/namebase.cpp \
+    scid/pgnparse.cpp \
     scid/position.cpp \
     scid/stored.cpp \
     scid/textbuf.cpp \
@@ -81,23 +89,34 @@ HEADERS += \
     dialogs/tab_font_style.h \
     model/font_style.h \
     profile/profile.h \
+    scid/attacks.h \
     scid/bytebuf.h \
     scid/common.h \
     scid/date.h \
     scid/dstring.h \
     scid/error.h \
+    scid/fastgame.h \
+    scid/filebuf.h \
     scid/fullmove.h \
     scid/game.h \
+    scid/gfile.h \
+    scid/hash.h \
+    scid/indexentry.h \
     scid/matsig.h \
+    scid/mfile.h \
     scid/misc.h \
     scid/movelist.h \
     scid/naglatex.h \
     scid/nagtext.h \
     scid/namebase.h \
+    scid/pgnparse.h \
     scid/position.h \
+    scid/sqlist.h \
     scid/sqmove.h \
+    scid/sqset.h \
     scid/stored.h \
     scid/textbuf.h \
+    scid/tokens.h \
     scid_test.h \
     uci/uci_worker.h \
     uci/uci_controller.h \
@@ -135,7 +154,6 @@ HEADERS += \
     viewController/enterposboard.h \
     viewController/pickcolorboard.h \
     various/helper.h \
-    chess/constants.h \
     chess/arrow.h \
     chess/colored_field.h \
     viewController/database_index_model.h \

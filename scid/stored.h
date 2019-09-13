@@ -21,20 +21,21 @@
 
 #include "fullmove.h"
 
+namespace scid {
+
+const uint STORED_LINES = 255;
+
 class StoredLine {
-	static const unsigned STORED_LINES = 255;
-	static const FullMove* Moves_[STORED_LINES + 1];
-
-	int8_t matches_[STORED_LINES + 1];
-
 public:
-	StoredLine(const pieceT* board, colorT toMove);
-
-	// Result:
+	StoredLine(pieceT* board, colorT toMove);
+	//Result:
 	//-2 : the game cannot reach the searched position
 	//-1 : the game can reach the searched position
 	//>=0: the game reach the searched position at the returned ply
-	int match(byte code) const { return matches_[code]; }
+	int match(uint code) {
+		if ((code > 0) && (code < STORED_LINES)) return matches_[code];
+		return -1;
+	}
 
 	static uint count () { return STORED_LINES; }
 	static FullMove getMove (uint code, uint ply = 0) {
@@ -43,7 +44,13 @@ public:
 		}
 		return FullMove();
 	}
+
+private:
+	int matches_ [STORED_LINES];
+	static const FullMove* Moves_ [STORED_LINES +1];
 };
+
+}
 
 #endif  // #ifndef SCID_STORED_H
 

@@ -12,17 +12,21 @@
 //
 //////////////////////////////////////////////////////////////////////
 
-#include "game.h"
-#include "bytebuf.h"
+
 #include "common.h"
-#include "dstring.h"
+#include "game.h"
+#include "gfile.h"
+#include "position.h"
+#include "pgnparse.h"
 #include "naglatex.h"
 #include "nagtext.h"
-#include "position.h"
-#include "stored.h"
+#include "bytebuf.h"
 #include "textbuf.h"
-#include <algorithm>
-#include <cstring>
+#include "stored.h"
+#include "dstring.h"
+#include <string.h>
+
+namespace scid {
 
 // Piece letters translation
 int language = 0; // default to english
@@ -67,6 +71,50 @@ char transPiecesChar(char c) {
     }
   return ret;
 }
+
+Game::~Game() {
+    while (MoveChunk->next != NULL) {
+        moveChunkT * tempChunk = MoveChunk->next;
+        delete MoveChunk;
+        MoveChunk = tempChunk;
+    }
+    delete MoveChunk;
+
+    delete CurrentPos;
+    if (SavedPos) { delete SavedPos; }
+    if (StartPos) { delete StartPos; }
+    ClearExtraTags();
+}
+
+// =================================================
+// PG : returns the variation number of current move
+// returns 0 if in main line
+uint Game::GetVarNumber() {
+    uint varNumber = 0;
+    ASSERT(CurrentMove != NULL && CurrentMove->prev != NULL);
+    moveT* move = CurrentMove;
+    if (VarDepth == 0) { // not in a variation!
+        return 0;
+    }
+    
+    while (move->prev->marker != START_MARKER) {
+        move = move->prev;
+    }
+    move = move->prev;
+    // Now CurrentMove == the start marker.
+    ASSERT (move != NULL);
+    ASSERT (move->varParent != NULL);
+    moveT* parent = move->varParent;
+
+    while (parent->varChild != move) {
+        ASSERT (parent->varChild != NULL);
+        parent = parent->varChild;
+        ASSERT (parent->marker == START_MARKER);
+        varNumber++;
+    }
+    return varNumber;  
+}
+// ===================================================
 
 const char * ratingTypeNames [17] = {
     "Elo", "Rating", "Rapid", "ICCF", "USCF", "DWZ", "ECF",
@@ -137,15 +185,10 @@ game_printNag (byte nag, char * str, bool asSymbol, gameFormatT format)
 //      Accepts numeric format ($51) or symbols such as
 //      !, ?, +=, -/+, N, etc.
 //
-byte game_parseNag(std::pair<const char*, const char*> strview) {
-    auto slen = std::distance(strview.first, strview.second);
-    if (slen == 0 || slen > 7)
-        return 0;
-
-    char strbuf[8] = {0};
-    std::copy_n(strview.first, slen, strbuf);
-    const char* str = strbuf;
-
+byte
+game_parseNag (const char * str)
+{
+    ASSERT (str != NULL);
     if (*str == '$') {
         str++;
         return (byte) strGetUnsigned(str);
@@ -364,202 +407,205 @@ byte game_parseNag(std::pair<const char*, const char*> strview) {
     return 0;
 }
 
-errorT Game::AddNag (byte nag) {
-    moveT * m = CurrentMove->prev;
-    if (m->nagCount + 1 >= MAX_NAGS) { return ERROR_GameFull; }
-    if (nag == 0) { /* Nags cannot be zero! */ return OK; }
-	// If it is a move nag replace an existing
-	if( nag >= 1 && nag <= 6)
-		for( int i=0; i<m->nagCount; i++)
-			if( m->nags[i] >= 1 && m->nags[i] <= 6)
-			{
-				m->nags[i] = nag;
-				return OK;
-			}
-	// If it is a position nag replace an existing
-	if( nag >= 10 && nag <= 21)
-		for( int i=0; i<m->nagCount; i++)
-			if( m->nags[i] >= 10 && m->nags[i] <= 21)
-			{
-				m->nags[i] = nag;
-				return OK;
-			}
-	if( nag >= 1 && nag <= 6)
-	{
-		// Put Move Nags at the beginning
-		for( int i=m->nagCount; i>0; i--)  m->nags[i] =  m->nags[i-1];
-		m->nags[0] = nag;
-	}
-	else
-		m->nags[m->nagCount] = nag;
-	m->nagCount += 1;
-	m->nags[m->nagCount] = 0;
-    return OK;
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::SaveState():
+//      Save the current game state (location), so that after an
+//      operation that alters the location (e.g. stepping through
+//      all moves printing them) is done, the current move can be
+//      set back to its original location.
+//
+void
+Game::SaveState ()
+{
+    if (!SavedPos) { SavedPos = new Position; }
+    SavedPos->CopyFrom (CurrentPos);
+    SavedMove = CurrentMove;
+    SavedPlyCount = CurrentPlyCount;
+    SavedVarDepth = VarDepth;
 }
 
-errorT Game::RemoveNag (bool isMoveNag) {
-    moveT * m = CurrentMove->prev;
-	if( isMoveNag)
-	{
-		for( int i=0; i<m->nagCount; i++)
-			if( m->nags[i] >= 1 && m->nags[i] <= 6)
-			{
-				m->nagCount -= 1;
-				for( int j=i; j<m->nagCount; j++)  m->nags[j] =  m->nags[j+1];
-				m->nags[m->nagCount] = 0;
-				return OK;
-			}
-	}
-	else
-	{
-		for( int i=0; i<m->nagCount; i++)
-			if( m->nags[i] >= 10 && m->nags[i] <= 21)
-			{
-				m->nagCount -= 1;
-				for( int j=i; j<m->nagCount; j++)  m->nags[j] =  m->nags[j+1];
-				m->nags[m->nagCount] = 0;
-				return OK;
-			}
-	}
-    return OK;
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::RestoreState():
+//      Restores the game state to what it was when SaveState()
+//      was called.
+errorT
+Game::RestoreState ()
+{
+    if (SavedMove) {
+        ASSERT (SavedPos != NULL);
+        CurrentPos->CopyFrom (SavedPos);
+        CurrentMove = SavedMove;
+        CurrentPlyCount = SavedPlyCount;
+        VarDepth = SavedVarDepth;
+        return OK;
+    }
+    return ERROR_General;
 }
 
 //////////////////////////////////////////////////////////////////////
 //  PUBLIC FUNCTIONS
 //////////////////////////////////////////////////////////////////////
 
+
+#define MAX_MOVES 5000          // Maximum moves per game.
+#define MAX_VARS_PER_MOVE 10    // Maximum variations per move.
+
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Move allocation:
 //      moves are allocated in chunks to save memory and for faster
 //      performance.
 //
-constexpr int MOVE_CHUNKSIZE = 128;
 
-moveT* Game::allocMove() {
-	if (moveChunkUsed_ == MOVE_CHUNKSIZE) {
-		moveChunks_.emplace_front(new moveT[MOVE_CHUNKSIZE]);
-		moveChunkUsed_ = 0;
-	}
-	return moveChunks_.front().get() + moveChunkUsed_++;
+void
+Game::AllocateMoreMoves ()
+{
+    moveChunkT * newChunk = new moveChunkT;
+    newChunk->numFree = MOVE_CHUNKSIZE;
+    newChunk->next = MoveChunk;
+    MoveChunk = newChunk;
 }
 
-moveT* Game::NewMove(markerT marker) {
-	moveT* res = allocMove();
-	res->clear();
-	res->marker = marker;
-	return res;
-}
-
-Game::Game(const Game& obj) {
-	extraTags_ = obj.extraTags_;
-	WhiteStr = obj.WhiteStr;
-	BlackStr = obj.BlackStr;
-	EventStr = obj.EventStr;
-	SiteStr = obj.SiteStr;
-	RoundStr = obj.RoundStr;
-	Date = obj.Date;
-	EventDate = obj.EventDate;
-	EcoCode = obj.EcoCode;
-	WhiteElo = obj.WhiteElo;
-	BlackElo = obj.BlackElo;
-	WhiteRatingType = obj.WhiteRatingType;
-	BlackRatingType = obj.BlackRatingType;
-	Result = obj.Result;
-	std::copy_n(obj.ScidFlags, sizeof(obj.ScidFlags), ScidFlags);
-
-	if (obj.StartPos)
-		StartPos = std::make_unique<Position>(*obj.StartPos);
-
-	NumHalfMoves = obj.NumHalfMoves;
-	KeepDecodedMoves = obj.KeepDecodedMoves;
-	WhiteEstimateElo = obj.WhiteEstimateElo;
-	BlackEstimateElo = obj.BlackEstimateElo;
-	NumMovesPrinted = obj.NumMovesPrinted;
-	PgnStyle = obj.PgnStyle;
-	PgnFormat = obj.PgnFormat;
-	HtmlStyle = obj.HtmlStyle;
-
-	moveChunkUsed_ = MOVE_CHUNKSIZE;
-	FirstMove = obj.FirstMove->cloneLine(nullptr,
-	                                     [this]() { return allocMove(); });
-
-	MoveToLocationInPGN(obj.GetLocationInPGN());
-}
-Game* Game::clone() { return new Game(*this); }
-
-void Game::strip(bool variations, bool comments, bool NAGs) {
-    while (variations && MoveExitVariation() == OK) { // Go to main line
+inline moveT *
+Game::NewMove ()
+{
+    if (FreeList) {
+        moveT * tempMove = FreeList;
+        FreeList = FreeList->next;
+        return tempMove;
     }
 
-    for (auto& chunk : moveChunks_) {
-        moveT* move = chunk.get();
-        moveT* end = (chunk == moveChunks_.front()) ? move + moveChunkUsed_
-                                                    : move + MOVE_CHUNKSIZE;
-        for (; move != end; ++move) {
-            if (variations) {
-                move->numVariations = 0;
-                move->varChild = nullptr;
-            }
-            if (comments)
-                move->comment.clear();
-
-            if (NAGs) {
-                move->nagCount = 0;
-                std::fill_n(move->nags, sizeof(move->nags), 0);
-            }
-        }
+    if (MoveChunk == NULL  ||  MoveChunk->numFree == 0) {
+        AllocateMoreMoves();
     }
+    MoveChunk->numFree--;
+    return &(MoveChunk->moves[MoveChunk->numFree]);
+}
+
+// Freeing a move: it is added to the free list so it can be reused.
+
+inline void
+Game::FreeMove (moveT * move)
+{
+    move->next = FreeList;
+    FreeList = move;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::Init(): initialise the game object
+void
+Game::Init()
+{
+    CurrentPos = new Position;
+    StartPos = NULL;
+    SavedPos = NULL;
+    MoveChunk = NULL;
+    AllocateMoreMoves();
+    NBase = NULL;
+    NumTags = 0;
+    NextGame = NULL;
+    Clear();
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::ClearStandardTags():
+//      Clears all of the standard tags.
+//
+void
+Game::ClearStandardTags ()
+{
+    WhiteStr.clear();
+    BlackStr.clear();
+    EventStr.clear();
+    SiteStr.clear();
+    RoundStr.clear();
+    Date = ZERO_DATE;
+    EventDate = ZERO_DATE;
+    EcoCode = 0;
+    Result = RESULT_None;
+    WhiteElo = BlackElo = 0;
+    WhiteEstimateElo = BlackEstimateElo = 0;
+    WhiteRatingType = BlackRatingType = RATING_Elo;
+    ScidFlags[0] = 0;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::ClearExtraTags(): clear any nonstandard tags.
+void
+Game::ClearExtraTags ()
+{
+    for (uint i=0; i < NumTags; i++) {
+        delete[] TagList[i].tag;
+        delete[] TagList[i].value;
+    }
+    NumTags = 0;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::ClearMoves(): clear all moves.
-void Game::ClearMoves() {
-    // Delete any chunks of moves except the first:
-    if (moveChunks_.empty()) {
-        moveChunkUsed_ = MOVE_CHUNKSIZE;
-    } else {
-        moveChunks_.erase_after(moveChunks_.begin(), moveChunks_.end());
-        moveChunkUsed_ = 0;
-    }
-    StartPos = nullptr;
-    CurrentPos->StdStart();
-
-    // Initialize FirstMove: start and end of movelist markers
-    FirstMove = NewMove(START_MARKER);
-    CurrentMove = NewMove(END_MARKER);
-    FirstMove->setNext(CurrentMove);
-
-    VarDepth = 0;
+void
+Game::ClearMoves ()
+{
     NumHalfMoves = 0;
+    CurrentPlyCount = 0;
+    StartPlyCount = 0;
+    VarDepth = 0;
+    NonStandardStart = false;
+    ToMove = WHITE;
+    PromotionsFlag = false;
+    UnderPromosFlag = false;
+    // Delete any chunks of moves except the first:
+    while (MoveChunk->next != NULL) {
+        moveChunkT * tempChunk = MoveChunk->next;
+        delete MoveChunk;
+        MoveChunk = tempChunk;
+    }
+    MoveChunk->numFree = MOVE_CHUNKSIZE;
+    FreeList = NULL;
+
+    // Initialise FirstMove: start and end of movelist markers
+    FirstMove = NewMove();
+    InitMove (FirstMove);
+    FirstMove->marker = START_MARKER;
+    FirstMove->next = NewMove();
+    InitMove (FirstMove->next);
+    FirstMove->next->marker = END_MARKER;
+    FirstMove->next->prev = FirstMove;
+    CurrentMove = FirstMove->next;
+    FinalMatSig = MATSIG_StdStart;
+
+    // Set up standard start
+    CurrentPos->StdStart();
+    KeepDecodedMoves = true;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::Clear():
 //      Reset the game to its normal empty state.
 //
-void Game::Clear() {
-	extraTags_.clear();
-	WhiteStr.clear();
-	BlackStr.clear();
-	EventStr.clear();
-	SiteStr.clear();
-	RoundStr.clear();
-	Date = ZERO_DATE;
-	EventDate = ZERO_DATE;
-	EcoCode = 0;
-	WhiteElo = BlackElo = 0;
-	WhiteEstimateElo = BlackEstimateElo = 0;
-	WhiteRatingType = BlackRatingType = RATING_Elo;
-	Result = RESULT_None;
-	ScidFlags[0] = 0;
+void
+Game::Clear()
+{
+    if (StartPos != NULL) { delete StartPos; StartPos = NULL; }
+    if (SavedPos != NULL) { delete SavedPos; SavedPos = NULL; }
+    SavedMove = NULL;
+    SavedPlyCount = 0;
+    SavedVarDepth = VarDepth = 0;
+    Altered = false;
 
-	NumMovesPrinted = 0;
-	PgnStyle = PGN_STYLE_TAGS | PGN_STYLE_VARS | PGN_STYLE_COMMENTS;
-	PgnFormat = PGN_FORMAT_Plain;
-	HtmlStyle = 0;
+    PgnStyle = PGN_STYLE_TAGS | PGN_STYLE_VARS | PGN_STYLE_COMMENTS;
+    PgnFormat = PGN_FORMAT_Plain;
+    HtmlStyle = 0;
+    PgnLastMovePos = 0;
 
-	ClearMoves();
-	KeepDecodedMoves = true;
+    // CommentsFlag = NagsFlag = VarsFlag = 0;
+    PromotionsFlag = false;
+    UnderPromosFlag = false;
+
+    ClearStandardTags();
+    ClearExtraTags();
+    ClearMoves();
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -597,42 +643,89 @@ Game::SetPgnFormatFromString (const char * str)
     return PgnFormatFromString (str, &PgnFormat);
 }
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::SetStartPos():
+//      Setup a start position.
+//
+void
+Game::SetStartPos (Position * pos)
+{
+    // We should not have any moves:
+    if (CurrentMove != FirstMove->next  ||
+          CurrentMove->marker != END_MARKER) {
+        ClearMoves();
+    }
+    VarDepth = 0;
+    if (!StartPos) { StartPos = new Position; }
+    StartPos->CopyFrom (pos);
+    CurrentPos->CopyFrom (pos);
+    // Now make the material signature:
+    FinalMatSig = matsig_Make (StartPos->GetMaterial());
+    NonStandardStart = true;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::SetStartFen():
+//      Setup the start position from a FEN string.
+//      I might remove this, so the only way to set the start position
+//      is with the above method, SetStartPos().
+//
 errorT
 Game::SetStartFen (const char * fenStr)
 {
-    auto pos = std::make_unique<Position>();
+    // First try to read the position:
+    Position * pos = new Position;
     errorT err = pos->ReadFromFEN (fenStr);
-    if (err != OK)
-        return err;
+    if (err != OK) { delete pos; return err; }
 
-    ClearMoves();
-    StartPos = std::move(pos);
-    *CurrentPos = *StartPos;
+    // We should not have any moves:
+    if (CurrentMove != FirstMove->next  ||
+          CurrentMove->marker != END_MARKER) {
+        ClearMoves();
+    }
+    VarDepth = 0;
+    if (StartPos) { delete StartPos; }
+    StartPos = pos;
+    CurrentPos->CopyFrom (StartPos);
+    // Now make the material signature:
+    FinalMatSig = matsig_Make (StartPos->GetMaterial());
+    NonStandardStart = true;
     return OK;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::AddPgnTag(): Add a PGN Tag.
 //
-void Game::AddPgnTag(const char* tag, const char* value) {
+void
+Game::AddPgnTag (const char * tag, const char * value)
+{
+    ASSERT (NumTags < MAX_TAGS);
     // First, try to replace an existing tag:
-    for (auto& e : extraTags_) {
-        if (e.first == tag) {
-            e.second.assign(value);
+    for (uint i=0; i < NumTags; i++) {
+        if (strEqual (tag, TagList[i].tag)) {
+            delete[] TagList[i].value;
+            TagList[i].value = strDuplicate (value);
             return;
         }
     }
-    extraTags_.emplace_back(tag, value);
+    // It does not already exist, so add a new tag:
+    TagList[NumTags].tag = strDuplicate (tag);
+    TagList[NumTags].value = strDuplicate (value);
+    if (strlen((char *) TagList[NumTags].tag) > MAX_TAG_LEN) {
+        TagList[NumTags].tag[MAX_TAG_LEN] = '\0';
+    }
+    NumTags++;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::FindExtraTag():
 //   Finds and returns an extra PGN tag if it
 //   exists, or NULL if it does not exist.
-const char* Game::FindExtraTag(const char* tag) const {
-    for (auto& e : extraTags_) {
-        if (e.first == tag)
-            return e.second.c_str();
+const char *
+Game::FindExtraTag (const char * tag)
+{
+    for (uint i=0; i < NumTags; i++) {
+        if (strEqual (tag, TagList[i].tag)) { return TagList[i].value; }
     }
     return NULL;
 }
@@ -640,40 +733,44 @@ const char* Game::FindExtraTag(const char* tag) const {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::RemoveExtraTag():
 //   Remove an extra PGN tag if it exists.
-bool Game::RemoveExtraTag(const char* tag) {
-    auto it = std::remove_if(extraTags_.begin(), extraTags_.end(),
-                             [&](const std::pair<std::string, std::string>& e) {
-                                 return e.first == tag;
-                             });
-    if (it != extraTags_.end()) {
-        extraTags_.erase(it, extraTags_.end());
-        return true;
+bool
+Game::RemoveExtraTag (const char * tag)
+{
+    bool removed = false;
+    for (uint i=0; i < NumTags; i++) {
+        if (strEqual (tag, TagList[i].tag)) {
+            // Found the specified tag, so delete it:
+            delete[] TagList[i].tag;
+            delete[] TagList[i].value;
+            NumTags--;
+            for (uint j = i; j < NumTags; j++) {
+                TagList[j].tag = TagList[j+1].tag;
+                TagList[j].value = TagList[j+1].value;
+            }
+            removed = true;
+        }
     }
-    return false;
+    return removed;
 }
 
-std::string& Game::accessTagValue(const char* tag, size_t tagLen) {
-	if (tagLen == 5) {
-		if (std::equal(tag, tag + 5, "Event"))
-			return EventStr;
-		if (std::equal(tag, tag + 5, "Round"))
-			return RoundStr;
-		if (std::equal(tag, tag + 5, "White"))
-			return WhiteStr;
-		if (std::equal(tag, tag + 5, "Black"))
-			return BlackStr;
-	} else if (tagLen == 4) {
-		if (std::equal(tag, tag + 4, "Site"))
-			return SiteStr;
-	}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::SetMoveData():
+//      Sets the move data for a move. Inline for speed.
+inline void
+Game::SetMoveData (moveT * m, simpleMoveT * sm)
+{
+    ASSERT (m != NULL && sm != NULL);
 
-	for (auto& elem : extraTags_) {
-		if (std::equal(tag, tag + tagLen, elem.first.begin(), elem.first.end()))
-			return elem.second;
-	}
-	extraTags_.emplace_back();
-	extraTags_.back().first.assign(tag, tagLen);
-	return extraTags_.back().second;
+    // We only copy the fields set in AddLegalMove in position.cpp, since
+    // other fields are meaningless at this stage.
+
+    simpleMoveT * newsm = &(m->moveData);
+    newsm->pieceNum = sm->pieceNum;
+    newsm->movingPiece = sm->movingPiece;
+    newsm->from = sm->from;
+    newsm->to = sm->to;
+    newsm->capturedPiece = sm->capturedPiece;
+    newsm->promote = sm->promote;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -694,284 +791,321 @@ Game::SetMoveComment (const char * comment)
     }
 }
 
-int Game::setRating(colorT col, const char* ratingType, size_t ratingTypeLen,
-                    std::pair<const char*, const char*> rating) {
-	auto begin = ratingTypeNames;
-	const size_t ratingSz = 7;
-	auto it = std::find_if(begin, begin + ratingSz, [&](auto rType) {
-		return std::equal(ratingType, ratingType + ratingTypeLen, rType,
-		                  rType + std::strlen(rType));
-	});
-	byte rType = static_cast<byte>(std::distance(begin, it));
-	if (rType >= ratingSz)
-		return -1;
-
-	int res = 1;
-	auto elo = strGetUnsigned(std::string{rating.first, rating.second}.c_str());
-	if (elo > MAX_ELO) {
-		elo = 0;
-		res = 0;
-	}
-	if (col == WHITE) {
-		SetWhiteElo(static_cast<eloT>(elo));
-		SetWhiteRatingType(rType);
-	} else {
-		SetBlackElo(static_cast<eloT>(elo));
-		SetBlackRatingType(rType);
-	}
-	return res;
-}
-
-///////////////////////////////////////////////////////////////////////////
-// A "location" in the game is represented by a position (Game::CurrentPos), the
-// next move to be played (Game::CurrentMove) and the number of parent variations
-// (Game::VarDepth). Since CurrentMove is the next move to be played, some
-// invariants must hold: it is never nullptr and it never points to a
-// START_MARKER (it will point to a END_MARKER if there are no more moves). This
-// also means that CurrentMove->prev is always valid: it will point to a
-// previous move or to a START_MARKER.
-// The following functions modify ONLY the current location of the game.
-
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Move current position forward one move.
-// Also update all the necessary fields in the simpleMove structure
-// (CurrentMove->moveData) so it can be undone.
+// Game::MoveForward():
+//      Move current position forward one move.
 //
-errorT Game::MoveForward(void) {
-	if (CurrentMove->endMarker())
-		return ERROR_EndOfMoveList;
-
-	CurrentPos->DoSimpleMove(&CurrentMove->moveData);
-	CurrentMove = CurrentMove->next;
-
-	// Invariants
-	ASSERT(CurrentMove && CurrentMove->prev);
-	ASSERT(!CurrentMove->startMarker());
-	return OK;
+errorT
+Game::MoveForward (void)
+{
+    ASSERT (CurrentMove != NULL);
+    if (CurrentMove->marker == END_MARKER) {
+        return ERROR_EndOfMoveList;
+    }
+    CurrentPos->DoSimpleMove (&(CurrentMove->moveData));
+    CurrentMove = CurrentMove->next;
+    CurrentPlyCount++;
+    return OK;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::MoveBackup():
 //      Backup one move.
 //
-errorT Game::MoveBackup(void) {
-	if (CurrentMove->prev->startMarker())
-		return ERROR_StartOfMoveList;
+errorT
+Game::MoveBackup (void)
+{
+    ASSERT (CurrentMove  &&  CurrentMove->prev);
+    if (CurrentMove->prev->marker == START_MARKER) {
+        return ERROR_StartOfMoveList;
+    }
+    CurrentMove = CurrentMove->prev;
+    CurrentPos->UndoSimpleMove (&(CurrentMove->moveData));
+    CurrentPlyCount--;
+    return OK;
+}
 
-	CurrentMove = CurrentMove->prev;
-	CurrentPos->UndoSimpleMove(&CurrentMove->moveData);
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::MoveToPly():
+//       Move to a specified mainline ply in the game.
+//
+void
+Game::MoveToPly (ushort hmNumber)
+{
+    CurrentMove = FirstMove->next;
+    VarDepth = 0;
+    if (NonStandardStart) {
+        CurrentPos->CopyFrom (StartPos);
+    } else {
+        CurrentPos->StdStart();
+    }
+    CurrentPlyCount = 0;
+    for (ushort i=0; i < hmNumber; i++) {
+        if (CurrentMove->marker != END_MARKER) { MoveForward(); }
+    }
+}
 
-	// Invariants
-	ASSERT(CurrentMove && CurrentMove->prev);
-	ASSERT(!CurrentMove->startMarker());
-	return OK;
+void Game::MoveTo (const std::vector<int>& v)
+{
+    if (v.size() == 0) return;
+    MoveToPly(v.back());
+    for (uint i = v.size() -1; i > 0; i--) {
+        if ((i % 2) == 1) {
+            for (int j=0; j < v[i -1]; j++) MoveForward();
+        } else {
+            MoveIntoVariation(v[i -1]);
+        }
+    }
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::MoveIntoVariation():
 //      Move into a subvariation. Variations are numbered from 0.
-errorT Game::MoveIntoVariation(uint varNumber) {
-	for (auto subVar = CurrentMove; subVar->varChild; --varNumber) {
-		subVar = subVar->varChild;
-		if (varNumber == 0) {
-			CurrentMove = subVar->next; // skip the START_MARKER
-			++VarDepth;
-
-			// Invariants
-			ASSERT(CurrentMove && CurrentMove->prev);
-			ASSERT(!CurrentMove->startMarker());
-			return OK;
-		}
-	}
-	return ERROR_NoVariation; // there is no such variation
+//
+errorT
+Game::MoveIntoVariation (uint varNumber)
+{
+    ASSERT(CurrentMove != NULL);
+    if (CurrentMove->marker == END_MARKER) {
+        return ERROR_EndOfMoveList;
+    }
+    if (varNumber >= CurrentMove->numVariations) {
+        return ERROR_NoVariation;  // there is no such variation
+    }
+    // Follow the linked list to the variation:
+    for (uint i=0; i <= varNumber; i++) {
+        ASSERT (CurrentMove->varChild);
+        CurrentMove = CurrentMove->varChild;
+        ASSERT (CurrentMove->marker == START_MARKER);
+    }
+    CurrentMove = CurrentMove->next; // skip the START_MARKER
+    VarDepth++;
+    return OK;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::MoveExitVariation():
 //      Move out of a variation, to the parent.
 //
-errorT Game::MoveExitVariation(void) {
-	if (VarDepth == 0) // not in a variation!
-		return ERROR_NoVariation;
+errorT
+Game::MoveExitVariation (void)
+{
+    ASSERT (CurrentMove != NULL  &&  CurrentMove->prev != NULL);
+    if (VarDepth == 0) { // not in a variation!
+        return ERROR_NoVariation;
+    }
 
-	// Algorithm: go back previous moves as far as possible, then
-	// go up to the parent of the variation.
-	while (MoveBackup() == OK) {
-	}
-	CurrentMove = CurrentMove->getParent().first;
-	--VarDepth;
+    // Algorithm: go back previous moves as far as possible, then
+    // go up to the parent of the variation.
+    while (CurrentMove->prev->marker != START_MARKER) {
+        MoveBackup();
+    }
+    CurrentMove = CurrentMove->prev;
 
-	// Invariants
-	ASSERT(CurrentMove && CurrentMove->prev);
-	ASSERT(!CurrentMove->startMarker());
-	return OK;
+    // Now CurrentMove == the start marker.
+    ASSERT (CurrentMove->varParent != NULL);
+    CurrentMove = CurrentMove->varParent;
+    VarDepth--;
+    return OK;
 }
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Move to the beginning of the game.
-//
-void Game::MoveToStart() {
-	if (StartPos) {
-		*CurrentPos = *StartPos;
-	} else {
-		CurrentPos->StdStart();
-	}
-	VarDepth = 0;
-	CurrentMove = FirstMove->next;
-
-	// Invariants
-	ASSERT(CurrentMove && CurrentMove->prev);
-	ASSERT(!CurrentMove->startMarker());
-}
-
-errorT Game::MoveForwardInPGN() {
-	if (CurrentMove->prev->varChild && MoveBackup() == OK)
-		return MoveIntoVariation(0);
-
-	while (MoveForward() != OK) {
-		if (VarDepth == 0)
-			return ERROR_EndOfMoveList;
-
-		auto varnum = GetVarNumber();
-		MoveExitVariation();
-		if (MoveIntoVariation(varnum + 1) == OK)
-			return OK;
-
-		MoveForward();
-	}
-	return OK;
-}
-
-errorT Game::MoveToLocationInPGN(unsigned stopLocation) {
-	MoveToPly(0);
-	for (unsigned loc = 1; loc < stopLocation; ++loc) {
-		errorT err = MoveForwardInPGN();
-		if (err != OK)
-			return err;
-	}
-	return OK;
-}
-
-unsigned Game::GetLocationInPGN() const {
-	unsigned res = 1;
-	const moveT* last_move = CurrentMove->prev;
-	const moveT* move = FirstMove;
-	for (; move != last_move; move = move->nextMoveInPGN()) {
-		if (!move->endMarker())
-			++res;
-	}
-	return res;
-}
-
-unsigned Game::GetPgnOffset() const {
-	unsigned res = 1;
-	const moveT* last_move = CurrentMove->getPrevMove();
-	if (last_move) {
-		const moveT* move = FirstMove;
-		for (; move != last_move; move = move->nextMoveInPGN()) {
-			if (!move->endMarker())
-				++res;
-		}
-	}
-	return res;
-}
-
-///////////////////////////////////////////////////////////////////////////
-// The following functions modify the moves graph in order to add or delete
-// moves. Promoting variations also modifies the moves graph.
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::AddMove():
 //      Add a move at current position and do it.
+//      The parameter 'san' can be NULL. If it is provided, it is stored
+//      with the move to speed up PGN printing.
 //
-errorT Game::AddMove(const simpleMoveT* sm) {
-	ASSERT(sm != NULL);
+errorT
+Game::AddMove (simpleMoveT * sm, char * san)
+{
+    ASSERT (CurrentMove != NULL  &&  sm != NULL);
+    // We must be at the end of a game/variation to add a move:
+    if (CurrentMove->marker != END_MARKER) {
+        // truncate the game!
+        CurrentMove->numVariations = 0;
+        CurrentMove->marker = END_MARKER;
+    }
+    moveT * newMove = NewMove();
+    InitMove (newMove);
+    newMove->next = CurrentMove;
+    newMove->prev = CurrentMove->prev;
+    CurrentMove->prev->next = newMove;
+    CurrentMove->prev = newMove;
+    SetMoveData (newMove, sm);
 
-	// We must be at the end of a game/variation to add a move:
-	if (!CurrentMove->endMarker())
-		Truncate();
+    if (sm->promote != EMPTY  &&  VarDepth == 0) {
+        // The move is a promotion in the game (not a variation) so
+        // update the promotions flag:
+        PromotionsFlag = true;
+        if (piece_Type(sm->promote) != QUEEN) {
+            UnderPromosFlag = true;
+        }
+    }
+    if (san != NULL) { strcpy (newMove->san, san); }
+    CurrentPos->DoSimpleMove (&(newMove->moveData));
 
-	CurrentMove->setNext(NewMove(END_MARKER));
-	CurrentMove->marker = NO_MARKER;
-	CurrentMove->moveData.from = sm->from;
-	CurrentMove->moveData.to = sm->to;
-	CurrentMove->moveData.promote = sm->promote;
-	CurrentMove->moveData.movingPiece = sm->movingPiece;
-	if (VarDepth == 0)
-		++NumHalfMoves;
-
-	return MoveForward();
+    CurrentPlyCount++;
+    if (VarDepth == 0) {
+        NumHalfMoves = CurrentPlyCount;
+        FinalMatSig = matsig_Make(CurrentPos->GetMaterial());
+    }
+    return OK;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::AddVariation():
 //      Add a variation for the current move.
 //      Also moves into the variation.
-errorT Game::AddVariation() {
-	auto err = MoveBackup();
-	if (err != OK)
-		return err;
+//
+errorT
+Game::AddVariation ()
+{
+    ASSERT (CurrentMove->prev != NULL);
+    moveT * parent = CurrentMove->prev;
+    if (parent->marker == START_MARKER) {
+        return ERROR_StartOfMoveList;
+    }
+    // No longer any limit on number of variations per move:
+    //if (parent->numVariations == MAX_VARS_PER_MOVE) {
+    //    return ERROR_VariationLimit;
+    //}
 
-	auto newVar = NewMove(START_MARKER);
-	newVar->setNext(NewMove(END_MARKER));
-	CurrentMove->appendChild(newVar);
+    // Add the child start marker and end marker:
+    moveT * child = NewMove();
+    InitMove (child);
+    child->varParent = parent;
+    child->marker = START_MARKER;
+    child->next = NewMove();
+    InitMove (child->next);
+    child->next->prev = child;
+    child->next->marker = END_MARKER;
+    //  VarsFlag = 1;
 
-	// Move into variation
-	CurrentMove = newVar->next;
-	++VarDepth;
+    // Update the board representation:
+    CurrentPos->UndoSimpleMove (&(parent->moveData));
+    CurrentPlyCount--;
+    CurrentMove = child->next;
+    VarDepth++;
 
-	// Invariants
-	ASSERT(CurrentMove && CurrentMove->prev);
-	ASSERT(!CurrentMove->startMarker());
-	return OK;
+    // Now add to the tail of the list of children of m:
+    moveT * m = parent;
+    for (uint i=0; i < (uint) parent->numVariations; i++) {
+        m = m->varChild;
+    }
+    m->varChild = child;
+    parent->numVariations += 1;
+    return OK;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::FirstVariation():
-// Promotes the current variation to first variation.
-errorT Game::FirstVariation() {
-	auto parent = CurrentMove->getParent();
-	auto root = parent.first;
-	if (!root)
-		return ERROR_NoVariation;
+//      Promotes a variation to being the first variation of this
+//      move. Variations are numbered from 0.
+errorT
+Game::FirstVariation (uint varNumber)
+{
+    if (varNumber >= CurrentMove->numVariations) {
+        return ERROR_NoVariation;
+    }
 
-	root->detachChild(parent.second);
-	root->insertChild(parent.second, 0);
-	return OK;
+    if (varNumber == 0) {
+        // Already the first variation! Nothing to do:
+        return OK;
+    }
+
+    moveT * parent = CurrentMove;
+    moveT * firstVar = CurrentMove->varChild;
+    moveT * m = CurrentMove->varChild;
+
+    // Remove the numbered variation from the linked list:
+    for (uint i=0; i < varNumber; i++) {
+        ASSERT (m->varParent == CurrentMove  &&  m->marker == START_MARKER);
+        parent = m;
+        m = m->varChild;
+    }
+    parent->varChild = m->varChild;
+
+    // Now reinsert it as the first variation:
+    m->varChild = firstVar;
+    CurrentMove->varChild = m;
+
+    return OK;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::MainVariation():
 //    Like FirstVariation, but promotes the variation to the main line,
 //    demoting the main line to be the first variation.
-errorT Game::MainVariation() {
-	auto parent = CurrentMove->getParent();
-	auto root = parent.first;
-	if (!root)
-		return ERROR_NoVariation;
-	if (parent.second->next->endMarker()) // Do not promote empty variations
-		return OK;
+//
+//    This function was implemented by Manuel Hoelss, with a few fixes
+//    added by myself (Shane Hudson).
+errorT
+Game::MainVariation ()
+{
+    std::vector<int> v = GetCurrentLocation();
+    if (v.size() < 3) return ERROR_NoVariation;
+    MoveTo(std::vector<int>(v.begin() +2 , v.end()));
+    int varNumber = v[1];
 
-	// Make the current variation the first variation
-	root->detachChild(parent.second);
-	root->insertChild(parent.second, 0);
+    moveT * parent = CurrentMove;
+    moveT * firstVar = CurrentMove->varChild;
+    moveT * m = CurrentMove->varChild;
 
-	// Swap the mainline with the current variation
-	root->swapLine(*parent.second->next);
+    if (varNumber > 0) {
+        // Move the selected variation to the front, as in FirstVariation()
 
-	ASSERT(VarDepth);
-	--VarDepth;
+        // Remove the numbered variation from the linked list:
+        for (int i=0; i < varNumber; i++) {
+            ASSERT (m->varParent == CurrentMove && m->marker == START_MARKER);
+            parent = m;
+            m = m->varChild;
+        }
+        parent->varChild = m->varChild;
 
-	// Now, the information about the material at the end of the
-	// game, pawn promotions, will be wrong if the variation was
-	// promoted to an actual game move, so call MakeHomePawnList()
-	// to go through the game moves and ensure it is correct.
-	auto location = currentLocation();
-	byte tempPawnList[9];
-	MakeHomePawnList(tempPawnList);
-	restoreLocation(location);
+        // Now reinsert it as the first variation:
+        m->varChild = firstVar;
+        CurrentMove->varChild = m;
+    }
 
-	return OK;
+    // Now exchange the next move of the main line with the
+    // next move of the variation:
+
+    moveT buffer;
+
+    buffer.moveData  = CurrentMove->moveData;
+    buffer.comment   = CurrentMove->comment;
+    buffer.next      = CurrentMove->next;
+    buffer.nagCount  = CurrentMove->nagCount;
+    memcpy (buffer.san, CurrentMove->san, sizeof buffer.san);
+    memcpy (buffer.nags, CurrentMove->nags, sizeof buffer.nags);
+
+    m = CurrentMove->varChild->next; // first move in first variation
+
+    CurrentMove->moveData  = m->moveData;
+    CurrentMove->comment   = m->comment;
+    CurrentMove->next      = m->next;
+    CurrentMove->nagCount  = m->nagCount;
+    memcpy (CurrentMove->san, m->san, sizeof CurrentMove->san);
+    memcpy (CurrentMove->nags, m->nags, sizeof CurrentMove->nags);
+
+    m->moveData  = buffer.moveData;
+    m->comment   = buffer.comment;
+    m->next      = buffer.next;
+    m->nagCount  = buffer.nagCount;
+    memcpy (m->san, buffer.san, sizeof m->san);
+    memcpy (m->nags, buffer.nags, sizeof m->nags);
+
+    CurrentMove->next->prev = CurrentMove;
+    m->next->prev = m;
+
+    // Now, the information about the material at the end of the
+    // game, pawn promotions, will be wrong if the variation was
+    // promoted to an actual game move, so call MakeHomePawnList()
+    // so go through the game moves and ensure it is correct.
+    MakeHomePawnList (NULL);
+    v[2] += v[0];
+    MoveTo(std::vector<int>(v.begin() +2 , v.end()));
+    return OK;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -981,14 +1115,61 @@ errorT Game::MainVariation() {
 //      added to the free list. This means that repeatedly adding and
 //      deleting variations will waste memory until the game is cleared.
 //
-errorT Game::DeleteVariation() {
-	auto parent = CurrentMove->getParent();
-	auto root = parent.first;
-	if (!root || MoveExitVariation() != OK)
-		return ERROR_NoVariation;
+errorT
+Game::DeleteVariation (uint varNumber)
+{
+    if (varNumber >= CurrentMove->numVariations) {
+        return ERROR_NoVariation;
+    }
+    moveT * parent = CurrentMove;
+    moveT * m = CurrentMove->varChild;
 
-	root->detachChild(parent.second);
-	return OK;
+    // Remove the numbered variation from the linked list:
+    for (uint i=0; i < varNumber; i++) {
+        ASSERT (m->varParent == CurrentMove  &&  m->marker == START_MARKER);
+        parent = m;
+        m = m->varChild;
+    }
+    parent->varChild = m->varChild;
+    CurrentMove->numVariations -= 1;
+    return OK;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::DeleteVariationAndFree():
+//      Deletes a variation. Variations are numbered from 0.
+//      Note that for speed and simplicity, moves are
+//      added to the free list.
+errorT
+Game::DeleteVariationAndFree (uint varNumber)
+{
+    if (varNumber >= CurrentMove->numVariations) {
+        return ERROR_NoVariation;
+    }
+    moveT * parent = CurrentMove;
+    moveT * m = CurrentMove->varChild;
+
+    // Remove the numbered variation from the linked list:
+    for (uint i=0; i < varNumber; i++) {
+        ASSERT (m->varParent == CurrentMove  &&  m->marker == START_MARKER);
+        parent = m;
+        m = m->varChild;
+    }
+    parent->varChild = m->varChild;
+
+    // free moves starting at m
+    moveT * tmp = NULL;
+    while (m->marker != END_MARKER && m != NULL) {
+      tmp = m->next;
+      FreeMove(m);
+      m = tmp;
+    }
+
+    if (m != NULL)
+      FreeMove(m);
+
+    CurrentMove->numVariations -= 1;
+    return OK;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -997,42 +1178,72 @@ errorT Game::DeleteVariation() {
 //      For speed and simplicity, moves and comments are not freed.
 //      So repeatedly adding moves and truncating a game will waste
 //      memory until the game is cleared.
-void Game::Truncate() {
-	if (CurrentMove->endMarker())
-		return;
-
-	auto endMove = NewMove(END_MARKER);
-	CurrentMove->prev->setNext(endMove);
-
-	CurrentMove = endMove;
-	if (VarDepth == 0)
-		NumHalfMoves = GetCurrentPly();
-
-	// Invariants
-	ASSERT(CurrentMove && CurrentMove->prev);
-	ASSERT(!CurrentMove->startMarker());
+//
+void
+Game::Truncate (void)
+{
+    ASSERT (CurrentMove != NULL);
+    CurrentMove->marker = END_MARKER;
+    return;
 }
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::TruncateAndFree():
+//      Truncate game at the current move.
+//      and free moves
+//
+void
+Game::TruncateAndFree (void)
+{
+    ASSERT (CurrentMove != NULL);
+
+    moveT * move = CurrentMove->next;
+    moveT * tmp = NULL;
+    while (move->marker != END_MARKER && move != NULL) {
+      tmp = move->next;
+      FreeMove(move);
+      move = tmp;
+    }
+
+    if (move != NULL)
+      FreeMove(move);
+
+    CurrentMove->next = NULL;
+    CurrentMove->marker = END_MARKER;
+}
+
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::TruncateStart():
 //      Truncate all moves leading to current position.
-void Game::TruncateStart() {
-    // It is necessary to rebuild the current position using ReadFromFEN()
-    // because the order of pieces is important when encoding to SCIDv4 format.
-    char tempStr[256];
-    CurrentPos->PrintFEN(tempStr, FEN_ALL_FIELDS);
-    auto pos = std::make_unique<Position>();
-    if (pos->ReadFromFEN(tempStr) != OK)
-        return;
-
-    if (VarDepth != 0 && MainVariation() != OK)
-		return;
-
-    NumHalfMoves -= GetCurrentPly();
-    StartPos = std::move(pos);
-    *CurrentPos = *StartPos;
-	FirstMove->setNext(CurrentMove);
+//      todo: copy comments (in WritePGN?)
+void
+Game::TruncateStart (void)
+{
+    ASSERT (CurrentMove != NULL);
+    while (MoveExitVariation() == OK);  // exit variations
+    if (!StartPos) { StartPos = new Position; }
+    StartPos->CopyFrom (CurrentPos);
+    NonStandardStart = true;
+    CurrentMove->prev->marker = END_MARKER;
+    FirstMove->next = CurrentMove;
+    CurrentMove->prev = FirstMove;
+    gameFormatT gfmt = PgnFormat;
+    SetPgnFormat (PGN_FORMAT_Plain);
+    // we need to switch off short header style or PGN parsing will not work
+    uint  old_style = GetPgnStyle ();
+    if (PgnStyle & PGN_STYLE_SHORT_HEADER) 
+      SetPgnStyle (PGN_STYLE_SHORT_HEADER, false);
+    std::pair<const char*, unsigned> pgnBuf = WriteToPGN();
+    Clear();
+    PgnParser parser (pgnBuf.first);
+    parser.ParseGame (this);
+    SetPgnFormat (gfmt);
+    MoveToPly(0);
+    if (old_style & PGN_STYLE_SHORT_HEADER) 
+      SetPgnStyle (PGN_STYLE_SHORT_HEADER, true);
 }
+
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::MakeHomePawnList():
@@ -1041,10 +1252,17 @@ void Game::TruncateStart() {
 //    This function also ensures that other information about the
 //    game that will be stored in the index file and used to speed
 //    up searches (material at end of game, etc) is up to date.
-std::pair<bool,bool> Game::MakeHomePawnList(byte* pbPawnList) {
-    ASSERT(pbPawnList != nullptr);
+
+void Game::MakeHomePawnList (byte * pbPawnList)
+{
+    // Use a temporary dummy array if none was provided:
+    byte tempPawnList [9];
+    if (pbPawnList == NULL) {
+        pbPawnList = tempPawnList;
+    }
+
     // We zero out the list first:
-    std::fill_n(pbPawnList, 9, 0);
+    for (int i = 0; i < 9; i++) pbPawnList[i] = 0;
 
     uint count = 0;
     uint halfByte = 0;
@@ -1053,14 +1271,14 @@ std::pair<bool,bool> Game::MakeHomePawnList(byte* pbPawnList) {
     byte* pbList = pbPawnList +1;
 
     NumHalfMoves = 0;
-    bool PromoFlag = false;
-    bool UnderPromosFlag = false;
+    PromotionsFlag = false;
+    UnderPromosFlag = false;
     MoveToPly(0);
 
     while (err == OK) {
         uint hpNew = CurrentPos->GetHPSig();
         uint changed = hpOld - hpNew;
-        if (changed != 0 && !HasNonStandardStart()) {
+        if (changed != 0 && !NonStandardStart) {
             // Find the idx of the moved pawn
             uint changeValue = 0;
             while (1) {
@@ -1081,7 +1299,7 @@ std::pair<bool,bool> Game::MakeHomePawnList(byte* pbPawnList) {
         }
         if (CurrentMove->marker != END_MARKER) {
             if (CurrentMove->moveData.promote != EMPTY) {
-                PromoFlag = true;
+                PromotionsFlag = true;
                 if (piece_Type(CurrentMove->moveData.promote) != QUEEN) {
                     UnderPromosFlag = true;
                 }
@@ -1090,21 +1308,21 @@ std::pair<bool,bool> Game::MakeHomePawnList(byte* pbPawnList) {
         err = MoveForward();
         if (err == OK) { NumHalfMoves++; }
     }
+    FinalMatSig = matsig_Make(CurrentPos->GetMaterial());
+
     // First byte in pawnlist array stores the count:
     pbPawnList[0] = (byte) count;
-
-    return {PromoFlag, UnderPromosFlag};
 }
 
-namespace {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // calcHomePawnMask():
 //      Computes the homePawn mask for a position.
 //
-int calcHomePawnMask (pieceT pawn, const pieceT* board)
+inline int
+calcHomePawnMask (pieceT pawn, pieceT * board)
 {
     ASSERT (pawn == WP  ||  pawn == BP);
-    const pieceT* bd = &(board[ (pawn == WP ? H2 : H7) ]);
+    pieceT * bd = &(board[ (pawn == WP ? H2 : H7) ]);
     int result = 0;
     if (*bd == pawn) { result |= 128; }  bd--;   // H-fyle pawn
     if (*bd == pawn) { result |=  64; }  bd--;   // G-fyle pawn
@@ -1117,13 +1335,26 @@ int calcHomePawnMask (pieceT pawn, const pieceT* board)
     return result;
 }
 
+// updateHomePawnMask:
+//      Clears one fyle from a home pawn mask.
+//
+inline uint
+updateHomePawnMask (uint oldMask, fyleT f)
+{
+    uint newMask = oldMask;
+    newMask &= ~((uint) 1 << f);
+    return newMask;
+}
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // patternsMatch():
 //      Used by Game::MaterialMatch() to test patterns.
 //      Returns 1 if all the patterns in the list match, 0 otherwise.
 //
-int patternsMatch(const Position* pos, patternT* ptn) {
-    const pieceT* board = pos->GetBoard();
+int
+patternsMatch (Position * pos, patternT * ptn)
+{
+    pieceT * board = pos->GetBoard();
     while (ptn != NULL) {
         if (ptn->rankMatch == NO_RANK) {
 
@@ -1161,7 +1392,6 @@ int patternsMatch(const Position* pos, patternT* ptn) {
     // If we reach here, all patterns matched:
     return 1;
 }
-} // end of anonymous namespace
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::MaterialMatch(): Material search test.
@@ -1170,7 +1400,7 @@ int patternsMatch(const Position* pos, patternT* ptn) {
 //      of each type of piece.
 //
 bool
-Game::MaterialMatch (bool PromotionsFlag, ByteBuffer * buf, byte * min, byte * max,
+Game::MaterialMatch (ByteBuffer * buf, byte * min, byte * max,
                      patternT * patterns, int minPly, int maxPly,
                      int matchLength, bool oppBishops, bool sameBishops,
                      int minDiff, int maxDiff)
@@ -1245,7 +1475,7 @@ Game::MaterialMatch (bool PromotionsFlag, ByteBuffer * buf, byte * min, byte * m
 
                 // Search for the white and black bishop, to find their
                 // square color:
-                const pieceT* bd = CurrentPos->GetBoard();
+                pieceT * bd = CurrentPos->GetBoard();
                 for (squareT sq = A1; sq <= H8; sq++) {
                     if (bd[sq] == WB) {
                         whiteBishCol = BOARD_SQUARECOLOR [sq];
@@ -1273,7 +1503,7 @@ Game::MaterialMatch (bool PromotionsFlag, ByteBuffer * buf, byte * min, byte * m
         if (matDiff < minDiff  ||  matDiff > maxDiff) { goto Next_Move; }
 
         // At this point, the Material matches; do the patterns match?
-        if (patterns == NULL || patternsMatch(currentPos(), patterns)) {
+        if (patterns == NULL  ||  patternsMatch (CurrentPos, patterns)) {
             foundMatch = true;
             matchesNeeded--;
             if (matchesNeeded <= 0) { return true; }
@@ -1338,7 +1568,7 @@ Game::ExactMatch (Position * searchPos, ByteBuffer * buf, simpleMoveT * sm,
     uint bpawnFyle [8] = {0, 0, 0, 0, 0, 0, 0, 0};;
 
     if (searchType == GAME_EXACT_MATCH_Fyles) {
-        const pieceT* board = searchPos->GetBoard();
+        pieceT * board = searchPos->GetBoard();
         uint fyle = 0;
         for (squareT sq = A1; sq <= H8; sq++, board++) {
             if (*board == WP) {
@@ -1364,10 +1594,10 @@ Game::ExactMatch (Position * searchPos, ByteBuffer * buf, simpleMoveT * sm,
     check_pawnMaskWhite = check_pawnMaskBlack = false;
 
     while (err == OK) {
-        const pieceT* currentBoard = CurrentPos->GetBoard();
-        const pieceT* board = searchPos->GetBoard();
-        const pieceT* b1 = currentBoard;
-        const pieceT* b2 = board;
+        pieceT * currentBoard = CurrentPos->GetBoard();
+        pieceT * board = searchPos->GetBoard();
+        pieceT * b1 = currentBoard;
+        pieceT * b2 = board;
         bool found = true;
 
         // If NO_SPEEDUPS is defined, a slower search is done without
@@ -1495,6 +1725,7 @@ Game::ExactMatch (Position * searchPos, ByteBuffer * buf, simpleMoveT * sm,
                     } else {
                         // Backup to the matching position:
                         CurrentPos->UndoSimpleMove (sm);
+                        CurrentPlyCount--;
                     }
                 }
             }
@@ -1546,7 +1777,7 @@ Game::VarExactMatch (Position * searchPos, gameExactMatchT searchType)
     uint bpawnFyle [8] = {0, 0, 0, 0, 0, 0, 0, 0};;
 
     if (searchType == GAME_EXACT_MATCH_Fyles) {
-        const pieceT* board = searchPos->GetBoard();
+        pieceT * board = searchPos->GetBoard();
         uint fyle = 0;
         for (squareT sq = A1; sq <= H8; sq++, board++) {
             if (*board == WP) {
@@ -1576,8 +1807,8 @@ Game::VarExactMatch (Position * searchPos, gameExactMatchT searchType)
             &&  searchPos->PieceCount(WQ) == CurrentPos->PieceCount(WQ)
             &&  searchPos->PieceCount(BQ) == CurrentPos->PieceCount(BQ)) {
             match = true;
-            const pieceT* b1 = CurrentPos->GetBoard();
-            const pieceT* b2 = searchPos->GetBoard();
+            pieceT * b1 = CurrentPos->GetBoard();
+            pieceT * b2 = searchPos->GetBoard();
             if (searchType == GAME_EXACT_MATCH_Pawns) {
                 for (squareT sq = A1;  sq <= H8;  sq++, b1++, b2++) {
                     if (*b1 != *b2  &&  (*b1 == WP  ||  *b1 == BP)) {
@@ -1637,9 +1868,10 @@ Game::GetPartialMoveList (DString * outStr, uint plyCount)
 {
     // First, copy the relevant data so we can leave the game state
     // unaltered:
-    auto location = currentLocation();
 
+    SaveState ();
     MoveToPly(0);
+
     char temp [80];
     for (uint i=0; i < plyCount; i++) {
         if (CurrentMove->marker == END_MARKER) {
@@ -1663,36 +1895,96 @@ Game::GetPartialMoveList (DString * outStr, uint plyCount)
     }
 
     // Now reconstruct the original game state:
-    restoreLocation(location);
+    RestoreState();
     return OK;
 }
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Returns the SAN representation of the next move or an empty string ("") if
-// not at a move.
-const char* Game::GetNextSAN() {
-	ASSERT(!CurrentMove->endMarker() || *CurrentMove->san == '\0');
+// Search a game for matching move(s) 
+// (based on Game::GetPartialMoveList)
 
-	if (!CurrentMove->endMarker() && *CurrentMove->san == '\0') {
-		CurrentPos->MakeSANString(
-		    &CurrentMove->moveData, CurrentMove->san,
-		    CurrentMove->next->endMarker() ? SAN_MATETEST : SAN_CHECKTEST);
-	}
-	return CurrentMove->san;
+bool
+Game::MoveMatch (int m_argc, char **m_argv, uint plyCount, bool wToMove, bool bToMove, int checkTest)
+{
+    MoveToPly(0);
+    for (uint i=0; i < plyCount; i++) {
+        moveT * m;
+        int j;
+
+        // todo: Assert end of game exists
+        if (CurrentMove->marker == END_MARKER) {
+            return false;
+        }
+
+        if (CurrentPos->GetToMove() == WHITE) {
+            if (!wToMove) goto skipmove;
+        } else {
+            if (!bToMove) goto skipmove;
+        }
+
+        m = CurrentMove;
+        j = 1;
+
+        if (m->san[0] == 0) {
+            CurrentPos->MakeSANString(&(m->moveData), m->san, checkTest);
+        }
+        if (strcmp(m->san, m_argv[0]) == 0) {
+            bool found = 1;
+            // Examine following moves to see all match
+            while (j < m_argc) {
+                if (! m->next) {
+                    found = 0;
+                    break;
+                }
+                if (j == 1) SaveState();
+                MoveForward();
+                m = CurrentMove;
+                if (m->san[0] == 0) {
+                    CurrentPos->MakeSANString(&(m->moveData), m->san, checkTest);
+                }
+                if (m_argv[j][0] != '?' && strcmp(m->san, m_argv[j]) != 0) {
+                    j++;
+                    found = 0;
+                    break;
+                } else {
+                    j++;
+                }
+            }
+            if (j > 1) RestoreState();
+
+            if (found) {
+                return true;
+            }
+        }
+skipmove:
+        MoveForward();
+    }
+
+    return false;
 }
+
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::GetSAN():
 //      Print the SAN representation of the current move to a string.
 //      Prints an empty string ("") if not at a move.
-void Game::GetSAN(char* str) {
-	ASSERT(str != NULL);
-	strcpy(str, GetNextSAN());
+void
+Game::GetSAN (char * str)
+{
+    ASSERT (str != NULL);
+    moveT * m = CurrentMove;
+    if (m->marker == START_MARKER  ||  m->marker == END_MARKER) {
+        str[0] = 0;
+        return;
+    }
+    if (m->san[0] == 0) {
+        CurrentPos->MakeSANString (&(m->moveData), m->san, SAN_MATETEST);
+    }
+    strcpy (str, m->san);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::GetPrevSAN():
-//      Print the SAN representation of the previous move to a string.
+//      Print the SAN representation of the current move to a string.
 //      Prints an empty string ("") if not at a move.
 void
 Game::GetPrevSAN (char * str)
@@ -1715,16 +2007,19 @@ Game::GetPrevSAN (char * str)
 // Game::GetPrevMoveUCI():
 //      Print the UCI representation of the current move to a string.
 //      Prints an empty string ("") if not at a move.
-void Game::GetPrevMoveUCI(char* str) const {
-    ASSERT(str != NULL);
-    moveT* m = CurrentMove->prev;
-    if (m->marker == START_MARKER) {
+void
+Game::GetPrevMoveUCI (char * str)
+{
+    ASSERT (str != NULL);
+    moveT * m = CurrentMove->prev;
+    if (m->marker == START_MARKER  ||  m->marker == END_MARKER) {
         str[0] = 0;
-    } else {
-        Position pos(*CurrentPos);
-        pos.UndoSimpleMove(&m->moveData);
-        pos.MakeUCIString(&m->moveData, str);
+        return;
     }
+    SaveState();
+    MoveBackup();
+    CurrentPos->MakeUCIString (&(m->moveData), str);
+    RestoreState();
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1832,8 +2127,10 @@ Game::WriteComment (TextBuffer * tb, const char * preStr,
 //      Write the moves, variations and comments in PGN notation.
 //      Recursive; calls itself to write variations.
 //
-errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
-                           bool printMoveNum, bool inComment) {
+errorT
+Game::WriteMoveList (TextBuffer *tb, uint plyCount,
+                     moveT * oldCurrentMove, bool printMoveNum, bool inComment)
+{
     char tempTrans[10];
     const char * preCommentStr = "{";
     const char * postCommentStr = "}";
@@ -1842,6 +2139,7 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
     const char * nextColumn = "\t";
     const char * endColumn = "\n";
     const char * endTable = "\n";
+    const char * newline = "\n";
     bool printDiagrams = false;
 
     if (IsHtmlFormat()) {
@@ -1852,6 +2150,7 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
         nextColumn = "</b></td>\n  <td width=\"45%\" align=left><b>";
         endColumn = "</b></td>\n</tr>\n";
         endTable = "</table>\n";
+        newline = "<br>\n";
         printDiagrams = true;
     }
     if (IsLatexFormat()) {
@@ -1862,10 +2161,12 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
         nextColumn = "&";
         endColumn = "\\\\\n";
         endTable = "\\end{tabular}\n\n";
+        newline = "\n";
         printDiagrams = true;
     }
     if (IsColorFormat()) {
         startTable = "<br>";
+        newline = "<br>";
         endColumn = "<br>";
     }
 
@@ -1910,11 +2211,14 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
         moveT *m = CurrentMove;
         bool commentLine = false;
 
+        // Stop the output if a specified stopLocation was given and has
+        // been reached:
+        if (StopLocation > 0  &&  NumMovesPrinted >= StopLocation) {
+            return OK;
+        }
+
         if (m->san[0] == 0) {
-            // If there is a next move we can skip the SAN_MATETEST
-            CurrentPos->MakeSANString(
-                &(m->moveData), m->san,
-                (m->next->marker != END_MARKER) ? SAN_CHECKTEST : SAN_MATETEST);
+            CurrentPos->MakeSANString (&(m->moveData), m->san, SAN_MATETEST);
         }
 
         bool printThisMove = true;
@@ -1993,15 +2297,15 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
             char* q = buf;
 
             for (char const* p = m->san; *p; ++p) {
-                ASSERT(q - buf < static_cast<std::ptrdiff_t>(sizeof(buf) - 4));
+                ASSERT(q - buf < sizeof(buf) - 4);
 
                 switch (*p) {
-                    case 'K':    q = std::copy_n("\xe2\x99\x94", 3, q); break;
-                    case 'Q':    q = std::copy_n("\xe2\x99\x95", 3, q); break;
-                    case 'R':    q = std::copy_n("\xe2\x99\x96", 3, q); break;
-                    case 'B':    q = std::copy_n("\xe2\x99\x97", 3, q); break;
-                    case 'N':    q = std::copy_n("\xe2\x99\x98", 3, q); break;
-                    case 'P':    q = std::copy_n("\xe2\x99\x99", 3, q); break;
+                    case 'K':    q = strncpy(q, "\xe2\x99\x94", 3) + 3; break;
+                    case 'Q':    q = strncpy(q, "\xe2\x99\x95", 3) + 3; break;
+                    case 'R':    q = strncpy(q, "\xe2\x99\x96", 3) + 3; break;
+                    case 'B':    q = strncpy(q, "\xe2\x99\x97", 3) + 3; break;
+                    case 'N':    q = strncpy(q, "\xe2\x99\x98", 3) + 3; break;
+                    case 'P':    q = strncpy(q, "\xe2\x99\x99", 3) + 3; break;
                     default:    *q++ = *p; break;
                 }
 
@@ -2015,7 +2319,7 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
             //tb->PrintWord (m->san);
             tb->PrintWord (tempTrans);
         }
-        colWidth -= (int) std::strlen(m->san);
+        colWidth -= strLength (m->san);
         if (IsColorFormat()) {
             tb->PrintString ("</m>");
         }
@@ -2047,7 +2351,7 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
                     printDiagramHere = true;
                 }
                 tb->PrintWord (temp);
-                colWidth -= (int) std::strlen(temp);
+                colWidth -= strLength(temp);
 
             }
             if (IsColorFormat()  &&  m->nagCount > 0) {
@@ -2184,8 +2488,13 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
         } else {
             tb->PrintSpace();
         }
+        if (StopLocation > 0  &&  NumMovesPrinted >= StopLocation) {
+            MoveForward();
+            return OK;
+        }
 
         // Print any variations if the style indicates:
+
         if ((PgnStyle & PGN_STYLE_VARS)  &&  (m->numVariations > 0)) {
             if ((PgnStyle & PGN_STYLE_COLUMN)  &&  VarDepth == 0) {
                 if (! endedColumn) {
@@ -2212,10 +2521,11 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
             for (uint i=0; i < m->numVariations; i++) {
                 if (PgnStyle & PGN_STYLE_INDENT_VARS) {
                     if (IsColorFormat()) {
-                        if (VarDepth < 19) {
-                            char tmp_str[16];
-                            sprintf(tmp_str, "<ip%u>", VarDepth + 1);
-                            tb->PrintString(tmp_str);
+                        switch (VarDepth) {
+                            case 0: tb->PrintString ("<ip1>"); break;
+                            case 1: tb->PrintString ("<ip2>"); break;
+                            case 2: tb->PrintString ("<ip3>"); break;
+                            case 3: tb->PrintString ("<ip4>"); break;
                         }
                     } else {
                         tb->SetIndent (tb->GetIndent() + 4); tb->Indent();
@@ -2244,8 +2554,11 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
                 tb->PrintSpace();
 
                 // Recursively print the variation:
-                WriteMoveList (tb, oldCurrentMove, true, inComment);
 
+                WriteMoveList (tb, plyCount, oldCurrentMove, true, inComment);
+                if (StopLocation > 0  &&  NumMovesPrinted >= StopLocation) {
+                    return OK;
+                }
                 MoveExitVariation();
                 if (!IsLatexFormat()  ||  VarDepth != 0) {
                     tb->PrintChar (')');
@@ -2263,10 +2576,11 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
                 }
                 if (PgnStyle & PGN_STYLE_INDENT_VARS) {
                     if (IsColorFormat()) {
-                        if (VarDepth < 19) {
-                            char tmp_str[16];
-                            sprintf(tmp_str, "</ip%u><br>", VarDepth + 1);
-                            tb->PrintString(tmp_str);
+                        switch (VarDepth) {
+                            case 0: tb->PrintString ("</ip1><br>"); break;
+                            case 1: tb->PrintString ("</ip2><br>"); break;
+                            case 2: tb->PrintString ("</ip3><br>"); break;
+                            case 3: tb->PrintString ("</ip4><br>"); break;
                         }
                     } else {
                         tb->SetIndent (tb->GetIndent() - 4); tb->Indent();
@@ -2286,6 +2600,7 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
             }
         }
         MoveForward();
+        plyCount++;
     }
     if (inComment) { tb->PrintString ("}"); }
     if (IsHtmlFormat()  &&  VarDepth == 0) { tb->PrintString ("</b>"); }
@@ -2297,10 +2612,17 @@ errorT Game::WriteMoveList(TextBuffer* tb, moveT* oldCurrentMove,
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::WritePGN():
-//      Write a game in PGN to a textbuffer.
+//      Write a game in PGN to a textbuffer.  If stopLocation is
+//      non-zero, it indicates a byte count at which the output should
+//      stop, leaving the game at that position. If it is zero, the
+//      entire game is printed and the game position prior to the
+//      WritePGN() call is restored.  So a nonzero stopLocation is used
+//      to move to a position in the game.
 //
-errorT Game::WritePGN(TextBuffer* tb) {
-    char temp[256];
+errorT
+Game::WritePGN (TextBuffer * tb, uint stopLocation)
+{
+    char temp [255];
     char dateStr [20];
     const char * newline = "\n";
     tb->NewlinesToSpaces (false);
@@ -2420,17 +2742,20 @@ errorT Game::WritePGN(TextBuffer* tb) {
             eco_ToExtendedString (EcoCode, ecoStr);
             tb->PrintString (ecoStr);
         }
-        auto annotator = FindExtraTag("Annotator");
-        if (annotator != NULL) {
-            sprintf(temp, " (%s)", annotator);
-            tb->PrintString(temp);
+        for (uint i=0; i < NumTags; i++) {
+            if( !strcmp(TagList[i].tag, "Annotator"))
+            {
+                sprintf (temp, " (%s)", TagList[i].value);
+                tb->PrintString (temp);
+            }
         }
 
         tb->PrintString (newline);
         if (PgnFormat==PGN_FORMAT_Color) {tb->PrintString ("</tag>"); }
 
         // Print FEN if non-standard start:
-        if (StartPos) {
+
+        if (NonStandardStart) {
             if (IsLatexFormat()) {
                 tb->PrintString ("\n\\begin{diagram}\n");
                 DString dstr;
@@ -2442,9 +2767,9 @@ errorT Game::WritePGN(TextBuffer* tb) {
                 StartPos->DumpHtmlBoard (&dstr, HtmlStyle, NULL);
                 tb->PrintString (dstr.Data());
             } else {
-                StartPos->PrintFEN(std::copy_n("Position: ", 10, temp),
-                                   FEN_ALL_FIELDS);
-                std::strcat(temp, newline);
+                char fenStr [256];
+                StartPos->PrintFEN (fenStr, FEN_ALL_FIELDS);
+                sprintf (temp, "Position: %s%s", fenStr, newline);
                 tb->PrintString (temp);
             }
         }
@@ -2501,17 +2826,17 @@ errorT Game::WritePGN(TextBuffer* tb) {
             }
 
             // Now print other tags
-            for (auto& e : extraTags_) {
-                sprintf(temp, "[%s \"%s\"]%s", e.first.c_str(),
-                        e.second.c_str(), newline);
-                tb->PrintString(temp);
+            for (uint i=0; i < NumTags; i++) {
+                sprintf (temp, "[%s \"%s\"]%s",
+                         TagList[i].tag, TagList[i].value, newline);
+                tb->PrintString (temp);
             }
         }
         // Finally, write the FEN tag if necessary:
-        if (StartPos) {
-            StartPos->PrintFEN(std::copy_n("[FEN \"", 6, temp), FEN_ALL_FIELDS);
-            auto it_end = std::copy_n("\"]", 2, temp + std::strlen(temp));
-            std::strcpy(it_end, newline);
+        if (NonStandardStart) {
+            char fenStr [256];
+            StartPos->PrintFEN (fenStr, FEN_ALL_FIELDS);
+            sprintf (temp, "[FEN \"%s\"]%s", fenStr, newline);
             tb->PrintString (temp);
         }
         if (IsColorFormat()) { tb->PrintString ("</tag>"); }
@@ -2531,11 +2856,16 @@ errorT Game::WritePGN(TextBuffer* tb) {
         tb->PrintString (newline);
     }
 
+    // Now print the move list. First, we note the current position and
+    // move, so we can reconstruct the game state afterwards:
+    moveT * oldCurrentMove = CurrentMove;
+    if (stopLocation == 0) { SaveState(); }
     MoveToPly(0);
 
     if (IsHtmlFormat()) { tb->PrintString ("<p>"); }
     NumMovesPrinted = 1;
-    WriteMoveList(tb, CurrentMove, true, false);
+    StopLocation = stopLocation;
+    WriteMoveList (tb, StartPlyCount, oldCurrentMove, true, false);
     if (IsHtmlFormat()) { tb->PrintString ("<b>"); }
     if (IsLatexFormat()) { tb->PrintString ("\n}\\end{chess}\n{\\bf "); }
     if (IsColorFormat()) { tb->PrintString ("<tag>"); }
@@ -2547,26 +2877,64 @@ errorT Game::WritePGN(TextBuffer* tb) {
     if (IsColorFormat()) { tb->PrintString ("</tag>"); }
     tb->NewLine();
 
+    // Now reset the current position and move:
+    if (stopLocation == 0) { RestoreState(); }
     return OK;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::WriteToPGN():
-//      Print the entire game.
+//      Just calls Game::WritePGN() with a zero stopLocation (to print
+//      the entire game).
 //
 std::pair<const char*, unsigned>
 Game::WriteToPGN(uint lineWidth, bool NewLineAtEnd, bool newLineToSpaces)
 {
     static TextBuffer tbuf;
 
-    auto location = currentLocation();
     tbuf.Empty();
     tbuf.SetWrapColumn(lineWidth ? lineWidth : tbuf.GetBufferSize());
     tbuf.NewlinesToSpaces(newLineToSpaces);
-    WritePGN(&tbuf);
+    WritePGN (&tbuf, 0);
     if (NewLineAtEnd) tbuf.NewLine();
-    restoreLocation(location);
     return std::make_pair(tbuf.GetBuffer(), tbuf.GetByteCount());
+}
+
+errorT
+Game::MoveToLocationInPGN (uint stopLocation)
+{
+    static TextBuffer tbuf;
+
+    tbuf.Empty();
+    tbuf.SetWrapColumn(tbuf.GetBufferSize());
+    return WritePGN (&tbuf, stopLocation);
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::CopyStandardTags():
+//      Sets the standard tag values for this game, given another
+//      game to copy the values from.
+void
+Game::CopyStandardTags (Game * fromGame)
+{
+    ASSERT (fromGame != NULL);
+    SetEventStr (fromGame->GetEventStr());
+    SetSiteStr (fromGame->GetSiteStr());
+    SetWhiteStr (fromGame->GetWhiteStr());
+    SetBlackStr (fromGame->GetBlackStr());
+    SetRoundStr (fromGame->GetRoundStr());
+
+    SetDate (fromGame->GetDate());
+    SetEventDate (fromGame->GetEventDate());
+    SetWhiteElo (fromGame->GetWhiteElo());
+    SetBlackElo (fromGame->GetBlackElo());
+    SetWhiteRatingType (fromGame->GetWhiteRatingType());
+    SetBlackRatingType (fromGame->GetBlackRatingType());
+    SetResult (fromGame->GetResult());
+    SetEco (fromGame->GetEco());
+    strCopy (ScidFlags, fromGame->ScidFlags);
+    return;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2609,6 +2977,20 @@ Game::GetAverageElo ()
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::WriteExtraTags():
+//      Print the nonstandard tags in PGN notation to a file.
+//
+errorT
+Game::WriteExtraTags (FILE * fp)
+{
+    for (uint i=0; i < NumTags; i++) {
+        fprintf (fp, "[%s \"%s\"]\n",
+                 TagList[i].tag, TagList[i].value);
+    }
+    return OK;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // makeMoveByte(): inline routine used for encoding most moves.
 //
 static inline byte
@@ -2621,7 +3003,9 @@ makeMoveByte (byte pieceNum, byte value)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // encodeKing(): encoding of King moves.
 //
-static byte encodeKing(const simpleMoveT* sm) {
+static inline void
+encodeKing (ByteBuffer * buf, simpleMoveT * sm)
+{
     // Valid King difference-from-old-square values are:
     // -9, -8, -7, -1, 1, 7, 8, 9, and -2 and 2 for castling.
     // To convert this to a val in the range [1-10], we add 9 and
@@ -2639,12 +3023,13 @@ static byte encodeKing(const simpleMoveT* sm) {
     // is represented as a king move to its own square and is encoded
     // as the byte value zero.
     if (sm->to == sm->from) {
-        return 0;
+        buf->PutByte (makeMoveByte (0, 0));
+        return;
     }
 
     // Verify we have a valid King move:
     ASSERT(diff >= -9  &&  diff <= 9  &&  val[diff+9] != 0);
-    return val[diff + 9];
+    buf->PutByte (makeMoveByte (0, val [diff + 9]));
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2670,7 +3055,9 @@ decodeKing (byte val, simpleMoveT * sm)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // encodeKnight(): encoding Knight moves.
 //
-static byte encodeKnight(const simpleMoveT* sm) {
+static inline void
+encodeKnight (ByteBuffer * buf, simpleMoveT * sm)
+{
     // Valid Knight difference-from-old-square values are:
     // -17, -15, -10, -6, 6, 10, 15, 17.
     // To convert this to a value in the range [1-8], we add 17 to
@@ -2687,7 +3074,7 @@ static byte encodeKnight(const simpleMoveT* sm) {
 
     // Verify we have a valid knight move:
     ASSERT (diff >= -17  &&  diff <= 17  &&  val[diff + 17] != 0);
-    return val[diff + 17];
+    buf->PutByte (makeMoveByte (sm->pieceNum, val [diff + 17]));
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2707,7 +3094,9 @@ decodeKnight (byte val, simpleMoveT * sm)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // encodeRook(): encoding rook moves.
 //
-static byte encodeRook(const simpleMoveT* sm) {
+static inline void
+encodeRook (ByteBuffer * buf, simpleMoveT * sm)
+{
     // Valid Rook moves are to same rank, OR to same fyle.
     // We encode the 8 squares on the same rank 0-8, and the 8
     // squares on the same fyle 9-15. This means that for any particular
@@ -2715,12 +3104,15 @@ static byte encodeRook(const simpleMoveT* sm) {
     // meaningless, as they will represent the from-square.
 
     ASSERT (sm->from <= H8  &&  sm->to <= H8);
+    byte val;
 
     // Check if the two squares share the same rank:
     if (square_Rank(sm->from) == square_Rank(sm->to)) {
-        return square_Fyle(sm->to);
+        val = square_Fyle(sm->to);
+    } else {
+        val = 8 + square_Rank(sm->to);
     }
-    return 8 + square_Rank(sm->to);
+    buf->PutByte (makeMoveByte (sm->pieceNum, val));
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2741,20 +3133,23 @@ decodeRook (byte val, simpleMoveT * sm)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // encodeBishop(): encoding Bishop moves.
 //
-static byte encodeBishop(const simpleMoveT* sm) {
+static inline void
+encodeBishop (ByteBuffer * buf, simpleMoveT * sm)
+{
     // We encode a Bishop move as the Fyle moved to, plus
     // a one-bit flag to indicate if the direction was
     // up-right/down-left or vice versa.
 
     ASSERT (sm->to <= H8  &&  sm->from <= H8);
+    byte val;
+    val = square_Fyle(sm->to);
     int rankdiff = (int)square_Rank(sm->to) - (int)square_Rank(sm->from);
     int fylediff = (int)square_Fyle(sm->to) - (int)square_Fyle(sm->from);
 
     // If (rankdiff * fylediff) is negative, it's up-left/down-right:
-    if (rankdiff * fylediff < 0)
-        return square_Fyle(sm->to) + 8;
+    if (rankdiff * fylediff < 0) { val += 8; }
 
-    return square_Fyle(sm->to);
+    buf->PutByte (makeMoveByte (sm->pieceNum, val));
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2778,8 +3173,9 @@ decodeBishop (byte val, simpleMoveT * sm)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // encodeQueen(): encoding Queen moves.
 //
-template <typename DestT>
-void encodeQueen(DestT* buf, const simpleMoveT* sm) {
+static inline void
+encodeQueen (ByteBuffer * buf, simpleMoveT * sm)
+{
     // We cannot fit all Queen moves in one byte, so Rooklike moves
     // are in one byte (encoded the same way as Rook moves),
     // while diagonal moves are in two bytes.
@@ -2791,30 +3187,29 @@ void encodeQueen(DestT* buf, const simpleMoveT* sm) {
         // Rook-horizontal move:
 
         val = square_Fyle(sm->to);
-        buf->emplace_back(makeMoveByte (sm->pieceNum, val));
+        buf->PutByte (makeMoveByte (sm->pieceNum, val));
 
     } else if (square_Fyle(sm->from) == square_Fyle(sm->to)) {
         // Rook-vertical move:
 
         val = 8 + square_Rank(sm->to);
-        buf->emplace_back(makeMoveByte (sm->pieceNum, val));
+        buf->PutByte (makeMoveByte (sm->pieceNum, val));
 
     } else {
         // Diagonal move:
-        ASSERT(std::abs(sm->to / 8 - sm->from / 8) ==
-               std::abs(sm->to % 8 - sm->from % 8));
+        ASSERT (dirIsDiagonal [sqDir [sm->from][sm->to]]);
 
         // First, we put a rook-horizontal move to the from square (which
         // is illegal of course) to indicate it is NOT a rooklike move:
 
         val = square_Fyle(sm->from);
-        buf->emplace_back(makeMoveByte (sm->pieceNum, val));
+        buf->PutByte (makeMoveByte (sm->pieceNum, val));
 
         // Now we put the to-square in the next byte. We add a 64 to it
         // to make sure that it cannot clash with the Special tokens (which
         // are in the range 0 to 15, since they are special King moves).
 
-        buf->emplace_back(sm->to + 64);
+        buf->PutByte (sm->to + 64);
     }
 }
 
@@ -2844,7 +3239,9 @@ decodeQueen (ByteBuffer * buf, byte val, simpleMoveT * sm)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // encodePawn(): encoding Pawn moves.
 //
-static byte encodePawn(const simpleMoveT* sm) {
+static inline void
+encodePawn (ByteBuffer * buf, simpleMoveT * sm)
+{
     // Pawn moves require a promotion encoding.
     // The pawn moves are:
     // 0 = capture-left,
@@ -2880,7 +3277,7 @@ static byte encodePawn(const simpleMoveT* sm) {
             val += 3 * ((sm->promote) - 1);
         }
     }
-    return val;
+    buf->PutByte (makeMoveByte (sm->pieceNum, val));
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2951,14 +3348,19 @@ isSpecialMoveCode (byte val)
 //      moves (only Queen diagonal moves) are encoded in two bytes, so
 //      it may be necessary to read the next byte as well.
 //
-static errorT decodeMove(ByteBuffer* buf, simpleMoveT* sm, byte val,
-                         const Position* pos) {
-    const squareT* sqList = pos->GetList(pos->GetToMove());
-    sm->from = sqList[val >> 4];
+static errorT
+decodeMove (ByteBuffer * buf, simpleMoveT * sm, byte val, Position * pos)
+{
+    // First, get the moving piece:
+    sm->pieceNum = (val >> 4);
+
+    squareT * sqList = pos->GetList (pos->GetToMove());
+    sm->from = sqList[sm->pieceNum];
     if (sm->from > H8) { return ERROR_Decode; }
 
-    const pieceT* board = pos->GetBoard();
+    pieceT * board = pos->GetBoard();
     sm->movingPiece = board[sm->from];
+    sm->capturedPiece = EMPTY;
     sm->promote = EMPTY;
 
     errorT err = OK;
@@ -2989,63 +3391,60 @@ static errorT decodeMove(ByteBuffer* buf, simpleMoveT* sm, byte val,
     return err;
 }
 
-template <typename DestT>
-void encodeMove(const simpleMoveT& sm, DestT& dest) {
-	byte val;
-	switch (piece_Type(sm.movingPiece)) {
-	case KING:
-		val = encodeKing(&sm);
-		break;
-	case QUEEN:
-		return encodeQueen(&dest, &sm);
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::EncodeMove():
+//  Encode one move and output it to the bytebuffer.
+//
+void
+Game::encodeMove (ByteBuffer * buf, moveT * m)
+{
+    simpleMoveT * sm = &(m->moveData);
+    pieceT pt = piece_Type(sm->movingPiece);
 
-	case ROOK:
-		val = encodeRook(&sm);
-		break;
-	case BISHOP:
-		val = encodeBishop(&sm);
-		break;
-	case KNIGHT:
-		val = encodeKnight(&sm);
-		break;
-	case PAWN:
-		val = encodePawn(&sm);
-		break;
-	default:
-		assert(false);
-	}
-	const auto encoded = makeMoveByte(sm.pieceNum, val);
-	dest.emplace_back(encoded);
+    typedef void encodeFnType (ByteBuffer *, simpleMoveT *);
+    static encodeFnType * encodeFn[] = {
+        NULL         /* 0 */,
+        encodeKing   /*1=KING*/,
+        encodeQueen  /*2=QUEEN*/,
+        encodeRook   /*3=ROOK*/,
+        encodeBishop /*4=BISHOP*/,
+        encodeKnight /*5=KNIGHT*/,
+        encodePawn   /*6=PAWN*/
+    };
+    ASSERT (pt >= KING  &&  pt <= PAWN);
+    (encodeFn[pt]) (buf, sm);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // encodeVariation(): Used by Encode() to encode the game's moves.
 //      Recursive; calls itself to encode subvariations.
 //
-static void encodeVariation(std::vector<byte>* buf, moveT* m, uint* subVarCount,
-                            uint* nagCount, uint depth) {
-    ASSERT(m != NULL);
+errorT
+Game::encodeVariation (ByteBuffer * buf, moveT * m, uint * subVarCount,
+                       uint * nagCount, uint depth)
+{
+    ASSERT (m != NULL);
 
     // Check if there is a pre-game or start-of-variation comment:
     if (! m->prev->comment.empty()) {
-        buf->emplace_back(ENCODE_COMMENT);
+        buf->PutByte (ENCODE_COMMENT);
     }
 
     while (m->marker != END_MARKER) {
-        encodeMove(m->moveData, *buf);
+        encodeMove (buf, m);
         for (uint i=0; i < (uint) m->nagCount; i++) {
-            buf->emplace_back(ENCODE_NAG);
-            buf->emplace_back(m->nags[i]);
+            buf->PutByte (ENCODE_NAG);
+            buf->PutByte (m->nags[i]);
             *nagCount += 1;
         }
         if (! m->comment.empty()) {
-            buf->emplace_back(ENCODE_COMMENT);
+            buf->PutByte (ENCODE_COMMENT);
         }
         if (m->numVariations > 0) {
             moveT * subVar = m->varChild;
             for (uint i=0; i < m->numVariations; i++) {
                 *subVarCount += 1;
-                buf->emplace_back(ENCODE_START_MARKER);
+                buf->PutByte (ENCODE_START_MARKER);
                 encodeVariation (buf, subVar->next, subVarCount, nagCount, depth+1);
                 subVar = subVar->varChild;
             }
@@ -3054,10 +3453,11 @@ static void encodeVariation(std::vector<byte>* buf, moveT* m, uint* subVarCount,
     }
     // At end, we output the end-variation or end-game token.
     if (depth == 0) {
-        buf->emplace_back(ENCODE_END_GAME);
+        buf->PutByte (ENCODE_END_GAME);
     } else {
-        buf->emplace_back(ENCODE_END_MARKER);
+        buf->PutByte (ENCODE_END_MARKER);
     }
+    return buf->Status();
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3095,9 +3495,9 @@ Game::DecodeVariation (ByteBuffer * buf, byte flags, uint level)
             break;
 
         default:  // It is a regular move
-            err = decodeMove(buf, &sm, b, currentPos());
+            err = decodeMove (buf, &sm, b, CurrentPos);
             if (err != OK)  { return err; }
-            AddMove(&sm);
+            AddMove (&sm, NULL);
         }
 
         b = buf->GetByte ();
@@ -3109,19 +3509,15 @@ Game::DecodeVariation (ByteBuffer * buf, byte flags, uint level)
     return buf->Status();
 }
 
-/**
- * The Tag section is a list of <tag,value> variable length records:
- * tag_length: 1-byte
- * tag: [0:240] bytes
- * value_length: 1-byte
- * value: [0:255] bytes
- * The section is terminated with 1-byte with value 0, meaning that empty
- * tags cannot be stored.
- * Some common tags are encoded in one byte, with a tag_length value over 240
- * and a tag of 0 bytes.
- */
-constexpr size_t MAX_TAG_LEN = 240;
-constexpr std::string_view commonTags[] = {
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Common tags are encoded in one byte, as a value over 240.
+//       This means that the maximum length of a non-common tag is 240
+//       bytes, and the maximum number of common tags is 15.
+//
+const char *
+commonTags [255 - MAX_TAG_LEN] =
+{
     // 241, 242: Country
     "WhiteCountry", "BlackCountry",
     // 243: Annotator
@@ -3133,128 +3529,146 @@ constexpr std::string_view commonTags[] = {
     // 246, 247: Opening, Variation
     "Opening", "Variation",
     // 248-250: Setup and Source
-    "Setup", "Source", "SetUp"
+    "Setup", "Source", "SetUp",
     // 252-254: spare for future use
+    NULL, NULL, NULL, NULL,
     // 255: Reserved for compact EventDate encoding
+    NULL
 };
 
-template <typename SourceT, typename DestT>
-void encodeTags(const SourceT& tagList, DestT& dest) {
-	for (auto& tag : tagList) {
-		if (tag.first.length() == 0)
-			continue; // Cannot store empty tag names
 
-		const auto it = std::find(commonTags, std::end(commonTags), tag.first);
-		if (it != std::end(commonTags)) {
-			// Common tags are stored with just their 1-byte value [241:250]
-			const auto tagnum = std::distance(commonTags, it) + MAX_TAG_LEN + 1;
-			dest.emplace_back(static_cast<byte>(tagnum));
-		} else {
-			// Other tags are stored as 1-byte length [1:240] + the tag name.
-			const auto tag_name = tag.first.data();
-			const auto length = std::min(tag.first.length(), MAX_TAG_LEN);
-			dest.emplace_back(static_cast<byte>(length));
-			dest.insert(dest.end(), tag_name, tag_name + length);
-		}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// encodeTags():
+//      Encodes the non-standard tags.
+//
+static errorT
+encodeTags (ByteBuffer * buf, tagT * tagList, uint numTags)
+{
+    uint length;
+    for (uint i=0; i < numTags; i++) {
+        char * tag = tagList[i].tag;
+        uint tagnum = 1;
+        const char ** common = commonTags;
+        while (*common != NULL) {
+            if (strEqual (tag, *common)) {
+                buf->PutByte ((byte) MAX_TAG_LEN + tagnum);
+                break;
+            } else {
+                common++;
+                tagnum++;
+            }
+        }
+        if (*common == NULL) {   // This is not a common tag.
+            length = strLength (tag);
+            buf->PutByte ((byte) length);
+            buf->PutFixedString (tag, length);
+        }
 
-		// The value is stored as 1-byte length [0:255] + the data.
-		const auto value = tag.second.data();
-		const auto valueLen = std::min<size_t>(tag.second.length(), 255);
-		dest.emplace_back(static_cast<byte>(valueLen));
-		dest.insert(dest.end(), value, value + valueLen);
-	}
-	dest.emplace_back(0);
+        length = strLength (tagList[i].value);
+        buf->PutByte ((byte) length);
+        buf->PutFixedString (tagList[i].value, length);
+    }
+    buf->PutByte (0);
+    return buf->Status();
 }
 
-template <typename SourceT, typename FuncT>
-void decodeTags(SourceT& src, FuncT fn) {
-	for (;;) {
-		byte tagLen = src.GetByte();
-		if (tagLen == 0 || src.Status() != OK)
-			return;
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Game::DecodeTags():
+//      Decodes the non-standard tags of the game.
+//
+errorT
+Game::DecodeTags (ByteBuffer * buf, bool storeTags)
+{
+    byte b;
+    char tag [255];
+    char value [255];
 
-		std::string_view tag;
-		if (tagLen <= MAX_TAG_LEN) {
-			tag = src.GetFixedString(tagLen);
-		} else if (tagLen <= MAX_TAG_LEN + 10) {
-			// A common tag name, not explicitly stored:
-			tag = commonTags[tagLen - MAX_TAG_LEN - 1];
-		} else {
-			ASSERT(false); // This common tags should be unused
-			if (tagLen == 255) {
-				// Special binary 3-byte encoding of EventDate used in SCID2
-				src.GetFixedString(3);
-			} else {
-				byte valueLen = src.GetByte();
-				src.GetFixedString(valueLen);
-			}
-			continue;
-		}
-
-		byte valueLen = src.GetByte();
-		auto value = src.GetFixedString(valueLen);
-		fn(tag, value);
-	}
+    b = buf->GetByte ();
+    while (b != 0  &&  buf->Status() == OK) {
+        if (b == 255) {
+            // Special binary 3-byte encoding of EventDate:
+            dateT date = 0;
+            b = buf->GetByte(); date = (date << 8) | b;
+            b = buf->GetByte(); date = (date << 8) | b;
+            b = buf->GetByte(); date = (date << 8) | b;
+            SetEventDate (date);
+            //char dateStr[20];
+            //date_DecodeToString (date, dateStr);
+            //if (storeTags) { AddPgnTag ("EventDate", dateStr); }
+        } else if (b > MAX_TAG_LEN) {
+            // A common tag name, not explicitly stored:
+            char * ctag = (char *) commonTags[b - MAX_TAG_LEN - 1];
+            b = buf->GetByte ();
+            buf->GetFixedString (value, b);
+            value[b] = '\0';
+            if (storeTags) { AddPgnTag (ctag, value); }
+        } else {
+            buf->GetFixedString (tag, b);
+            tag[b] = '\0';
+            b = buf->GetByte ();
+            buf->GetFixedString (value, b);
+            value[b] = '\0';
+            if (storeTags) { AddPgnTag (tag, value); }
+        }
+        b = buf->GetByte();
+    }
+   return buf->Status();
 }
 
-/**
- * The StartBoard section starts with a byte containing three flags:
- * 0-bit: true if the game doesn't start with the standard board
- * 1-bit: true if there are pawn to queen promotions
- * 2-bit: true if there are pawn to non-queen promotions.
- * If the 0-bit is true, the byte is followed by a null terminated string
- * containing the FEN of the start position..
- */
-template <typename DestT>
-void encodeStartBoard(bool promoFlag, bool underpromoFlag, const char* FEN,
-                      DestT& dest) {
-	byte flags = 0;
-	if (FEN) {
-		flags += 1;
-	}
-	if (promoFlag) {
-		flags += 2;
-	}
-	if (underpromoFlag) {
-		flags += 4;
-	}
-	dest.emplace_back(flags);
-	if (FEN) {
-		const auto len = std::strlen(FEN) + 1; // Include the null char
-		dest.insert(dest.end(), FEN, FEN + len);
-	}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// skipTags():
+//      Called instead of DecodeTags() to skip over the tags of the
+//      game when decoding it. Called from DecodeStart() since the
+//      nonstandard tags are not needed for searches.
+//
+static errorT
+skipTags (ByteBuffer * buf)
+{
+    byte b;
+    b = buf->GetByte ();
+    while (b != 0  &&  buf->Status() == OK) {
+        if (b == 255) {
+            // Special 3-byte binary encoding of EventDate:
+            buf->Skip (3);
+        } else {
+            if (b > MAX_TAG_LEN) {
+                // Do nothing.
+            } else {
+                buf->Skip (b);
+            }
+            b = buf->GetByte ();
+            buf->Skip (b);
+        }
+        b = buf->GetByte();
+    }
+    return buf->Status ();
 }
 
-template <typename SourceT, typename FuncT>
-void decodeStartBoard(SourceT& src, FuncT fn) {
-	byte flags = src.GetByte();
-	if (flags & 1) {
-		if (auto FEN = src.GetTerminatedString()) {
-			fn(FEN);
-		}
-	}
-}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// encodeComments():
+//      Encode the comments of the game. Recurses the moves of the game
+//      and writes the comment whenever a move with a comment is found.
+//
+errorT
+Game::encodeComments (ByteBuffer * buf, moveT * m, uint * commentCounter)
+{
+    ASSERT(buf != NULL  &&  m != NULL);
 
-/**
- * The Comments section is composed by null-terminated strings. The comments are
- * stored in the order in which they will appear in the PGN notation:
- * {C1} 1.d4 {C2} (1.b4 {C3} 1...e5 {C4} (1...Na6 {C5}) 2.e4 {C6})
- * ({C7} 1.g4 {C8}) 1...d5 {C9}
- */
-template <typename MoveT, typename DestT>
-auto encodeComments(const MoveT* m, DestT& dest) {
-	ASSERT(m);
-
-	unsigned n_comments = 0;
-	do {
-		if (!m->comment.empty()) {
-			const auto len = m->comment.size() + 1; // Include the null char
-			const auto data = m->comment.c_str();
-			dest.insert(dest.end(), data, data + len);
-			++n_comments;
-		}
-	} while ((m = m->nextMoveInPGN()));
-	return n_comments;
+    while (m->marker != END_MARKER) {
+        if (! m->comment.empty()) {
+            buf->PutTerminatedString (m->comment.c_str());
+            *commentCounter += 1;
+        }
+        if (m->numVariations) {
+           moveT * subVar = m->varChild;
+            for (uint i=0; i < m->numVariations; i++) {
+                encodeComments (buf, subVar, commentCounter);
+                subVar = subVar->varChild;
+            }
+        }
+        m = m->next;
+    }
+    return buf->Status();
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3264,21 +3678,31 @@ auto encodeComments(const MoveT* m, DestT& dest) {
 //      not empty), so this function recurses the movelist and subvariations
 //      and allocates each comment to its move.
 //
-template <typename SourceT, typename MoveT>
-static errorT decodeComments(SourceT& buf, MoveT* m) {
-	ASSERT(m);
+errorT
+Game::decodeComments (ByteBuffer * buf, moveT * m)
+{
+    ASSERT (buf != NULL  &&  m != NULL);
 
-	do {
-		if (!m->comment.empty()) {
-			ASSERT(m->comment == "*");
-			auto str = buf.GetTerminatedString();
-			if (!str)
-				return ERROR_BufferRead;
-			m->comment = str;
-		}
-	} while ((m = m->nextMoveInPGN()));
-	return OK;
+    while (m->marker != END_MARKER) {
+        if (! m->comment.empty()) {
+            ASSERT (m->comment == "*");
+            char * str;
+            buf->GetTerminatedString(&str);
+            m->comment = str;
+        }
+
+        if (m->numVariations) {
+           moveT * subVar = m->varChild;
+            for (uint i=0; i < m->numVariations; i++) {
+                decodeComments (buf, subVar);
+                subVar = subVar->varChild;
+            }
+        }
+        m = m->next;
+    }
+    return buf->Status();
 }
+
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::Encode(): Encode the game to a buffer for disk storage.
@@ -3291,81 +3715,103 @@ static errorT decodeComments(SourceT& buf, MoveT* m) {
 //       -  finalMatSig: the material signature of the final position.
 //       -  homePawnData: the home pawn change list.
 //
-errorT Game::Encode(std::vector<byte>& dest, IndexEntry& ie) {
-    // Make the home pawn change list and update PromotionFlag:
-    byte homePawnList[9];
-    auto promoFlags = MakeHomePawnList(homePawnList);
+errorT
+Game::Encode (ByteBuffer * buf, IndexEntry * ie)
+{
+    ASSERT (buf != NULL);
+    errorT err;
 
+    buf->Empty();
     // First, encode info not already stored in the index
     // This will be the non-STR (non-"seven tag roster") PGN tags.
-    encodeTags(GetExtraTags(), dest);
-
-    // Encode the promotion flags and the start position
-    char FEN[256];
-    encodeStartBoard(promoFlags.first, promoFlags.second,
-                     HasNonStandardStart(FEN) ? FEN : nullptr, dest);
+    err = encodeTags (buf, TagList, NumTags);
+    if (err != OK) { return err; }
+    // Now the game flags:
+    byte flags = 0;
+    if (NonStandardStart) { flags += 1; }
+    if (PromotionsFlag)   { flags += 2; }
+    if (UnderPromosFlag)  { flags += 4; }
+    buf->PutByte (flags);
+    // Now encode the startBoard, if there is one.
+    if (NonStandardStart) {
+        char tempStr [256];
+        StartPos->PrintFEN (tempStr, FEN_ALL_FIELDS);
+        buf->PutTerminatedString (tempStr);
+    }
 
     // Now the movelist:
     uint varCount = 0;
     uint nagCount = 0;
-    encodeVariation(&dest, FirstMove->next, &varCount, &nagCount, 0);
+    err = encodeVariation (buf, FirstMove->next, &varCount, &nagCount, 0);
+    if (err != OK) { return err; }
 
     // Now do the comments
-    const auto commentCount = encodeComments(FirstMove, dest);
+    uint commentCount = 0;
+    
+    err = encodeComments (buf, FirstMove, &commentCount);
 
     // Set the fields in the IndexEntry:
-    ie.SetDate(Date);
-    ie.SetEventDate(EventDate);
-    ie.SetResult(Result);
-    ie.SetEcoCode(EcoCode);
-    ie.SetWhiteElo(WhiteElo);
-    ie.SetBlackElo(BlackElo);
-    ie.SetWhiteRatingType(WhiteRatingType);
-    ie.SetBlackRatingType(BlackRatingType);
+    if (ie != NULL) {
+        ie->SetDate (Date);
+        ie->SetEventDate (EventDate);
+        ie->SetResult (Result);
+        ie->SetEcoCode (EcoCode);
+        ie->SetWhiteElo (WhiteElo);
+        ie->SetBlackElo (BlackElo);
+        ie->SetWhiteRatingType (WhiteRatingType);
+        ie->SetBlackRatingType (BlackRatingType);
 
-    ie.clearFlags();
-    ie.SetStartFlag(HasNonStandardStart());
-    ie.SetCommentCount(commentCount);
-    ie.SetVariationCount(varCount);
-    ie.SetNagCount(nagCount);
-    ie.SetFlag(IndexEntry::StrToFlagMask(ScidFlags), true);
+        ie->SetFlag(IDX_MASK_ALLFLAGS, false);
+        ie->SetStartFlag (NonStandardStart);
+        ie->SetCommentCount (commentCount);
+        ie->SetVariationCount (varCount);
+        ie->SetNagCount (nagCount);
+        ie->SetFlag(IndexEntry::StrToFlagMask(ScidFlags), true);
 
-    std::copy_n(homePawnList, sizeof(homePawnList), ie.GetHomePawnData());
-    // Set other data updated by MakeHomePawnList():
-    ie.SetPromotionsFlag(promoFlags.first);
-    ie.SetUnderPromoFlag(promoFlags.second);
-    ie.SetNumHalfMoves(NumHalfMoves);
-    ASSERT(AtEnd());
-    ie.SetFinalMatSig(matsig_Make(CurrentPos->GetMaterial()));
+        // Make the home pawn change list:
+        MakeHomePawnList (ie->GetHomePawnData());
 
-    // Find the longest matching stored line for this game:
-    uint storedLineCode = 0;
-    if (!HasNonStandardStart()) {
-        uint longestMatch = 0;
-        for (uint i = 1; i < StoredLine::count(); i++) {
-            moveT* gameMove = FirstMove->next;
-            uint matchLength = 0;
-            FullMove m = StoredLine::getMove(i, matchLength);
-            while (m) {
-                if (gameMove->marker == END_MARKER ||
-                    gameMove->moveData.from != m.getFrom() ||
-                    gameMove->moveData.to != m.getTo()) {
-                    matchLength = 0;
-                    break;
+        // Set other data updated by MakeHomePawnList():
+        ie->SetPromotionsFlag (PromotionsFlag);
+        ie->SetUnderPromoFlag (UnderPromosFlag);
+        ie->SetFinalMatSig (FinalMatSig);
+        ie->SetNumHalfMoves (NumHalfMoves);
+
+        // Find the longest matching stored line for this game:
+        uint storedLineCode = 0;
+        if (!NonStandardStart) {
+            uint longestMatch = 0;
+            for (uint i = 1; i < StoredLine::count(); i++) {
+                moveT* gameMove = FirstMove->next;
+                uint matchLength = 0;
+                FullMove m = StoredLine::getMove(i, matchLength);
+                while (!m.isNull()) {
+                    if (gameMove->marker == END_MARKER
+                        ||  gameMove->moveData.from != m.getFrom()
+                        ||  gameMove->moveData.to != m.getTo())
+                    {
+                        matchLength = 0; break;
+                    }
+                    gameMove = gameMove->next;
+                    m = StoredLine::getMove(i, ++matchLength);
                 }
-                gameMove = gameMove->next;
-                m = StoredLine::getMove(i, ++matchLength);
-            }
-            if (matchLength > longestMatch) {
-                longestMatch = matchLength;
-                storedLineCode = i;
+                if (matchLength > longestMatch) {
+                    longestMatch = matchLength;
+                    storedLineCode = i;
+                }
             }
         }
+        ASSERT(storedLineCode == static_cast<byte>(storedLineCode));
+        ie->SetStoredLineCode(static_cast<byte>(storedLineCode));
     }
-    ASSERT(storedLineCode == static_cast<byte>(storedLineCode));
-    ie.SetStoredLineCode(static_cast<byte>(storedLineCode));
+    
+    // as each game entry length is coded on 17 bits, and game must fit in a block
+    // return an error if there is an overflow
+    if (buf->GetByteCount() >= MAX_GAME_LENGTH || buf->GetByteCount() > GF_BLOCKSIZE) {
+      err = ERROR_GameFull;
+    }
 
-    return OK;
+    return err;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3394,7 +3840,7 @@ Game::DecodeNextMove (ByteBuffer * buf, simpleMoveT * sm)
         switch (b) {
         case ENCODE_NAG:
             // We ignore NAGS but have to read it from the buffer
-            buf->GetByte();
+            b = buf->GetByte();
             break;
 
         case ENCODE_COMMENT:  // We also ignore comments
@@ -3426,12 +3872,13 @@ Game::DecodeNextMove (ByteBuffer * buf, simpleMoveT * sm)
         default:  // It's a move in the game; decode it:
             simpleMoveT tempMove;
             if (!sm) { sm = &tempMove; }
-            err = decodeMove (buf, sm, b, currentPos());
+            err = decodeMove (buf, sm, b, CurrentPos);
             if (err != OK)  { return err; }
             if (KeepDecodedMoves) {
-                AddMove(sm);
+                AddMove (sm, NULL);
             } else {
                 CurrentPos->DoSimpleMove (sm);
+                CurrentPlyCount++;
             }
             return OK;
         }
@@ -3443,69 +3890,163 @@ Game::DecodeNextMove (ByteBuffer * buf, simpleMoveT * sm)
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Game::DecodeTags():
-//      Decodes the non-standard tags of the game.
-//
-errorT Game::DecodeTags(ByteBuffer* buf) {
-    decodeTags(*buf, [&](auto tag, auto value) {
-        accessTagValue(tag.data(), tag.size()).assign(value);
-    });
-    return buf->Status();
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::DecodeStart():
 //      Decodes the starting information from the game's on-disk
 //      representation in the bytebuffer. After this is called,
 //      DecodeNextMove() can be called to decode each successive
 //      mainline move.
 //
-errorT Game::DecodeStart(ByteBuffer* buf) {
-    ASSERT(buf != NULL);
-    if (buf->Status() == OK)
-		decodeTags(*buf, [](auto, auto) {});
-
+errorT
+Game::DecodeStart (ByteBuffer * buf)
+{
+    ASSERT (buf != NULL);
     errorT err = buf->Status();
-    if (err == OK)
-        decodeStartBoard(*buf,
-                         [&](const char* FEN) { err = SetStartFen(FEN); });
+    if (err != OK) { return err; }
 
-    return (err != OK) ? err : buf->Status();
-}
+    // First the tags: just skip them for speed.
+    //--// removed due to Gerds Hints
+    //--// NumTags = 0;
+    err = skipTags (buf);
+    if (err != OK) { return err; }
 
-errorT Game::DecodeMovesOnly(ByteBuffer& buf) {
-    Clear();
-    errorT err = DecodeStart(&buf);
-    if (err == OK)
-        err = DecodeVariation(&buf, GAME_DECODE_NONE, 0);
+    // Now the flags:
+    byte flags = buf->GetByte();
+    if (flags & 1) { NonStandardStart = true; }
+    if (flags & 2) { PromotionsFlag = true; }
+    if (flags & 4) { UnderPromosFlag = true; }
 
-    return (err != OK) ? err : buf.Status();
+    // Now decode the startBoard, if there is one.
+    if (NonStandardStart) {
+        char * tempStr;
+        buf->GetTerminatedString (&tempStr);
+        if ((err = buf->Status()) != OK) {
+            NonStandardStart = 0;
+            return err;
+        }
+        if (!StartPos) { StartPos = new Position; }
+        err = StartPos->ReadFromFEN (tempStr);
+        if (err != OK) {
+            NonStandardStart = 0;
+            return err;
+        }
+        CurrentPos->CopyFrom (StartPos);
+    }
+
+    return err;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Game::Decode():
 //      Decodes a game from its on-disk representation in a bytebuffer.
 //      Decodes all the information: comments, variations, non-standard
-//      tags, etc.
+//      tags, etc, or selectively can ignore comments and/or tags for
+//      speed if the argument "flags" indicates.
 //
-errorT Game::Decode(ByteBuffer& buf) {
+errorT
+Game::Decode (ByteBuffer * buf, byte flags)
+{
+    ASSERT (buf != NULL);
+    errorT err;
+
     Clear();
-    if (buf.Status() == OK)
-        decodeTags(buf, [&](auto tag, auto value) {
-            accessTagValue(tag.data(), tag.size()).assign(value);
-        });
 
-    errorT err = buf.Status();
-    if (err == OK)
-        decodeStartBoard(buf, [&](const char* FEN) { err = SetStartFen(FEN); });
+    // First the nonstandard tags: decode or skip them.
+    if (flags & GAME_DECODE_TAGS) {
+        err = DecodeTags (buf, true);
+    } else {
+        err = skipTags (buf);
+    }
+    if (err != OK) { return err; }
 
-    if (err == OK)
-        err = DecodeVariation(&buf, GAME_DECODE_ALL, 0);
+    byte gflags = buf->GetByte();
+    if (gflags & 1) { NonStandardStart = true; }
+    if (gflags & 2) { PromotionsFlag = true; }
+    if (gflags & 4) { UnderPromosFlag = true; }
 
-    if (err == OK)
-        err = decodeComments(buf, FirstMove);
+    // Now decode the startBoard, if there is one.
+    if (NonStandardStart) {
+        char * tempStr;
+        buf->GetTerminatedString (&tempStr);
+        if ((err = buf->Status()) != OK) {
+            NonStandardStart = 0;
+            return err;
+        }
+        if (!StartPos) { StartPos = new Position; }
+        err = StartPos->ReadFromFEN (tempStr);
+        if (err != OK) {
+            NonStandardStart = 0;
+            return err;
+        }
+        *CurrentPos = *StartPos;
+    }
 
-    return (err != OK) ? err : buf.Status();
+    err = DecodeVariation (buf, flags, 0);
+
+    if (err != OK) { return err; }
+
+    // Last of all, decode the comments:
+    if (flags & GAME_DECODE_COMMENTS) {
+        err = decodeComments (buf, FirstMove);
+        if (err != OK) { return err; }
+    }
+
+    return buf->Status();
+}
+
+bool Game::calcAbsPlyNumber_(moveT *m, moveT *s) {
+    while (m != 0) {
+        PgnLastMovePos++;
+        if (m == s) return true;
+        if (PgnStyle & PGN_STYLE_VARS) {
+            moveT* v = m;
+            for (uint i=0; i < m->numVariations; i++) {
+                v = v->varChild;
+                if (calcAbsPlyNumber_(v->next, s)) {
+                    PgnLastMovePos++;
+                    return true;
+                }
+            }
+        }
+        if (m->marker == END_MARKER) break;
+        m = m->next;
+    }
+    return false;
+}
+
+std::vector<int> Game::GetCurrentLocation() {
+    std::vector <int> res;
+    uint n = 0;
+    for (moveT* i = CurrentMove->prev; i != 0; i = i->prev) {
+        if (i->varParent != 0) {
+            if (n != 0) {
+                res.push_back(n);
+                int varNum = 1;
+                for (moveT* j = i;  j->varChild != 0; j = j->varChild) varNum++;
+                res.push_back(i->varParent->numVariations - varNum);
+                n = 0;
+            }
+            i = i->varParent;
+            continue;
+        }
+        if (i->marker == NO_MARKER) n++;
+    }
+    res.push_back(n);
+    return res;
+}
+
+Game* Game::clone() {
+    ByteBuffer bbuf(BBUF_SIZE);
+    Game* g = new Game();
+    SaveState();
+    Encode (&bbuf, NULL);
+    RestoreState();
+    bbuf.BackToStart();
+    g->Decode (&bbuf, GAME_DECODE_ALL);
+    g->CopyStandardTags (this);
+    g->MoveTo(GetCurrentLocation());
+    return g;
+}
+
 }
 
 //////////////////////////////////////////////////////////////////////

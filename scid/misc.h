@@ -19,19 +19,22 @@
 #define SCID_MISC_H
 
 #include "common.h"
-#include <algorithm>
 #include <string>
-#include <cstring>
+#include <string.h>
 #include <stdio.h>
 #include <ctype.h>   // For isspace(), etc
 #include <cstdlib>
 #include <vector>
+
+namespace scid {
 
 /**
  * class StrRange - parse a string interpreting its content as 1 or 2 integers
  *                  separated by whitespace.
  * The integers represent the min and max value of a range.
  * If only one integer is provided it will represent both the min and max value.
+ *
+ * inRange()  :  Return true if @val is >= min and <= max
  */
 class StrRange {
 protected:
@@ -52,7 +55,6 @@ public:
 		if (min_ > max_) std::swap(min_, max_);
 	}
 
-	/// @returns true if @e val is >= min_ and <= max_
 	bool inRange(long val) const {
 		if (val < min_ || val > max_) return false;
 		return true;
@@ -60,29 +62,97 @@ public:
 };
 
 
-class Progress {
-public:
-	struct Impl {
-		virtual ~Impl() {}
-		virtual bool report(size_t done, size_t total, const char* msg) = 0;
-	};
+/**
+ * class VectorBig - store data into chunks to avoid (or minimize) reallocations
+ * @CHUNKSHIFT:	is the base-2 logarithm of the number of T entries per chunk.
+ *              Total size of a chunk: (2^CHUNKSHIFT)*sizeof(T)
+ * resize()   : Used to avoid reallocations.
+ *              Very efficient because it allocates space only for chunk pointers
+ *              i.e with @count==16777214 and @CHUNKSHIFT==16 will use 256 pointers
+ */
+template <class T, size_t CHUNKSHIFT>
+class VectorBig {
+	std::vector<T*> index_;
+	size_t size_;
 
-	Progress(Impl* f = NULL) : f_(f) {}
+public:
+	VectorBig() : size_(0) {}
+	VectorBig(const VectorBig&);
+	VectorBig& operator=(const VectorBig&);
+	~VectorBig() { resize(0); }
+
+	const T& operator[] (size_t idx) const {
+		const size_t low_mask = ((1 << CHUNKSHIFT) - 1);
+		return index_[idx >> CHUNKSHIFT][idx & low_mask];
+	}
+	T& operator[] (size_t idx) {
+		const size_t low_mask = ((1 << CHUNKSHIFT) - 1);
+		return index_[idx >> CHUNKSHIFT][idx & low_mask];
+	}
+
+	size_t size() const {
+		return size_;
+	}
+
+	void reserve(size_t count) {
+		index_.reserve(1 + (count >> CHUNKSHIFT));
+	}
+
+	void resize(size_t count) {
+		size_ = count;
+		size_t index_NewSize = (count > 0) ? 1 + (count >> CHUNKSHIFT) : 0;
+
+		while (index_.size() > index_NewSize) {
+			delete [] index_.back();
+			index_.pop_back();
+		}
+		while (index_.size() < index_NewSize) {
+			index_.push_back(new T[1 << CHUNKSHIFT]);
+		}
+	}
+	void resize(size_t count, const T& defaulVal) {
+		size_t i = size_;
+		resize(count);
+		while (i < count) (*this)[i++] = defaulVal;
+	}
+
+	void push_back(const T& e) {
+		resize(size_ + 1, e);
+	}
+};
+
+
+class ProgressImp {
+public:
+	virtual ~ProgressImp() {}
+	virtual bool report(uint done, uint total) = 0;
+};
+
+class Progress {
+	ProgressImp* f_;
+public:
+	Progress(ProgressImp* f = 0) : f_(f) {}
 	Progress(const Progress&);
 	Progress& operator=(const Progress&);
-	~Progress() { delete f_; }
+	~Progress() { if (f_) delete f_;}
 
-	bool report(size_t done, size_t total) const {
-		return operator()(done, total);
-	}
-	bool operator()(size_t done, size_t total, const char* msg = NULL) const {
-		if (f_) return f_->report(done, total, msg);
+	bool report(uint done, uint total) const {
+		if (f_) return f_->report(done, total);
 		return true;
 	}
-
-private:
-	Impl* f_;
 };
+
+
+#if CPP11_SUPPORT
+using std::to_string;
+#else
+#include <sstream>
+inline std::string to_string(int val) {
+	std::ostringstream res;
+	res << std::dec << val;
+	return res.str();
+}
+#endif
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -123,42 +193,53 @@ ecoT eco_Reduce(ecoT eco);
 //      (a) to keep nice consistent naming conventions, e.g. strCopy.
 //      (b) so stats can easily be kept by modifying the functions.
 //      (c) so some can be made inline for speed if necessary.
-
-inline uint32_t strStartHash(const char* str) {
-	ASSERT(str != 0);
-	const unsigned char* s = reinterpret_cast<const unsigned char*>(str);
-
-	uint32_t tmp = static_cast<unsigned char>(tolower(*s));
-	uint32_t result = tmp << 24;
-	if (*s == '\0') return result;
-	tmp = static_cast<unsigned char>(tolower(*++s));
-	result += tmp << 16;
-	if (*s == '\0') return result;
-	tmp = static_cast<unsigned char>(tolower(*++s));
-	result += tmp << 8;
-	if (*s == '\0') return result;
-	result += static_cast<unsigned char>(tolower(*++s));
-	return result;
-}
+//
+//      Currently, strLength() and strPrefix() are inline.
+//      strCompare_INLINE() is an inline equivalent of strCompare().
 
 char * strDuplicate (const char * str);
+int    strCompare (const char * s1, const char * s2);
+int    strCaseCompare (const char * s1, const char * s2);
+int    strCompareRound (const char * sleft, const char * sright);
 
+inline bool
+strEqual (const char * s1, const char * s2) {
+    return (strCompare (s1, s2) == 0);
+}
+
+void   strCopy (char * target, const char * original);
 void   strCopyExclude (char * target, const char * original,
                        const char * excludeChars);
 char * strAppend (char * target, const char * extra);
+char * strAppend (char * target, uint u);
+char * strAppend (char * target, int i);
+char * strAppend (char * target, const char * s1, const char * s2);
+char * strAppend (char * target, const char * s1, const char * s2);
+char * strAppend (char * target, const char * s1, const char * s2,
+                  const char * s3);
+char * strAppend (char * target, const char * s1, const char * s2,
+                  const char * s4);
+uint   strPrefix (const char * s1, const char * s2);
 uint   strPad (char * target, const char * orig, int length, char pad);
 const char * strFirstChar (const char * target, char matchChar);
 const char * strLastChar (const char * target, char matchChar);
 void   strStrip (char * str, char ch);
 
+static const char WHITESPACE[6] = " \t\r\n";
 const char * strTrimLeft (const char * target, const char * trimChars);
 inline const char * strTrimLeft (const char * target) {
-    return strTrimLeft (target, " \t\r\n");
+    return strTrimLeft (target, WHITESPACE);
+}
+uint   strTrimRight (char * target, const char * trimChars);
+inline uint strTrimRight (char * target) {
+    return strTrimRight (target, WHITESPACE);
 }
 uint   strTrimSuffix (char * target, char suffixChar);
 void   strTrimDate (char * str);
 void   strTrimMarkCodes (char * str);
 void   strTrimMarkup (char * str);
+void   strTrimSurname (char * str, uint initials);
+inline void strTrimSurname (char * str) { strTrimSurname (str, 0); }
 const char * strFirstWord (const char * str);
 const char * strNextWord (const char * str);
 
@@ -169,65 +250,38 @@ strPlural (uint x) {
     return (x == 1 ? "" : "s");
 }
 
+bool   strIsAllWhitespace (const char * str);
 bool   strIsUnknownName (const char * str);
+
+// strIsPrefix: returns true if prefix is a prefix of longStr.
+bool   strIsPrefix (const char * prefix, const char * longStr);
+
+// strIsCasePrefix: like strIsPrefix, but case-insensitive.
+bool   strIsCasePrefix (const char * prefix, const char * longStr);
+
+// strIsAlphaPrefix: like strIsPrefix, but case-insensitive and space
+//    characters are ignored.
+bool   strIsAlphaPrefix (const char * prefix, const char * longStr);
 
 // strIsSurnameOnly: returns true if a string appears to only
 //    contain a surname.
 bool   strIsSurnameOnly (const char * name);
 
+// strAlphaContains: returns true if longStr contains keyStr,
+//    case-insensitive and ignoring spaces. strContains is similar but
+//    is case-sensitive and does not ignore spaces.
+bool   strAlphaContains (const char * longStr, const char * keyStr);
+
+bool   strContains (const char * longStr, const char * keyStr);
+bool   strCaseContains (const char * longStr, const char * keyStr);
+int    strContainsIndex (const char * longStr, const char * keyStr);
+
 bool   strGetBoolean (const char * str);
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// strGetInteger():
-//    Extracts a signed base-10 value from a string.
-//    Defaults to zero (as strtol does) for non-numeric strings.
-inline int
-strGetInteger(const char * str)
-{
-	return std::strtol(str, NULL, 10);
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// strGetUnsigned():
-//    Extracts an unsigned base-10 value from a string.
-//    Defaults to zero (as strtoul does) for non-numeric strings.
-//
-inline uint32_t strGetUnsigned(const char* str) {
-	ASSERT(str != NULL);
-	return static_cast<uint32_t>(std::strtoul(str, NULL, 10));
-}
-
-inline int strCaseCompare(const char* str1, const char* str2) {
-	ASSERT(str1 != NULL && str2 != NULL);
-	const unsigned char* s1 = reinterpret_cast<const unsigned char*>(str1);
-	const unsigned char* s2 = reinterpret_cast<const unsigned char*>(str2);
-	int c1, c2;
-	do {
-		c1 = tolower(*s1++);
-		c2 = tolower(*s2++);
-		if (c1 == '\0')
-			break;
-	} while (c1 == c2);
-
-	return c1 - c2;
-}
-
-inline int strCompareRound(const char* str1, const char* str2) {
-	ASSERT(str1 != NULL && str2 != NULL);
-	uint32_t a = strGetUnsigned(str1);
-	uint32_t b = strGetUnsigned(str2);
-	if (a == b)
-		return strCaseCompare(str1, str2);
-	return (a < b) ? -1 : 1;
-}
-
-inline bool strEqual(const char* str1, const char* str2) {
-	ASSERT(str1 != NULL && str2 != NULL);
-	return (std::strcmp(str1, str2) == 0);
-}
-
+int    strGetInteger (const char * str);
+uint   strGetUnsigned (const char * str);
 void   strGetIntegers (const char * str, int * results, uint nResults);
 void   strGetUnsigneds (const char * str, uint * results, uint nResults);
+void   strGetBooleans (const char * str, bool * results, uint nResults);
 resultT strGetResult (const char * str);
 
 typedef uint flagT;
@@ -269,17 +323,9 @@ strContainsChar (const char * str, char ch)
     return false;
 }
 
-// WARNING: Avoid this function!
-// Considering that the sign of a char is implementation-defined [3.9.1], the
-// int conversion ("[4.7.3] If the destination type is signed, the value is
-// unchanged if it can be represented in the destination type") can yield
-// different results on different architectures or compilers.
-// A better alternative is the standard function strcmp() that returns the
-// difference between the values of the first pair of characters (both
-// interpreted as unsigned char) that differ in the strings being compared.
-inline int strCompare(const char* s1, const char* s2)
+inline int
+strCompare_INLINE (const char *s1, const char *s2)
 {
-    ASSERT (s1 != NULL  &&  s2 != NULL);
     while (1) {
         if (*s1 != *s2) {
             return ((int) *s1) - ((int) *s2);
@@ -289,122 +335,6 @@ inline int strCompare(const char* s1, const char* s2)
         s1++; s2++;
     }
     return 0;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// strCopy(): same as strcpy().
-//
-inline void
-strCopy (char * target, const char * original)
-{
-    ASSERT (target != NULL  &&  original != NULL);
-    while (*original != 0) {
-        *target = *original;
-        target++;
-        original++;
-    }
-    *target = 0;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// strPrefix():
-//       Returns the length of the common prefix of two strings.
-//
-inline uint
-strPrefix (const char * s1, const char * s2)
-{
-    ASSERT (s1 != NULL  &&  s2 != NULL);
-    uint count = 0;
-    while (*s1 == *s2) {
-        if (*s1 == 0) { // seen end of string, strings are identical
-            return count;
-        }
-        count++; s1++; s2++;
-    }
-    return count;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// strIsPrefix():
-//      Returns true if the prefix string is a prefix of longStr.
-inline bool
-strIsPrefix (const char * prefix, const char * longStr)
-{
-    while (*prefix) {
-        if (*longStr == 0) { return false; }
-        if (*prefix != *longStr) { return false; }
-        prefix++;
-        longStr++;
-    }
-    return true;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// strIsCasePrefix():
-//      Returns true if the prefix string is a case-insensitive
-//      prefix of longStr.
-inline bool
-strIsCasePrefix (const char * prefix, const char * longStr)
-{
-    typedef unsigned char U;
-    while (*prefix) {
-        if (*longStr == 0) { return false; }
-        if (tolower(U(*prefix)) != tolower(U(*longStr))) { return false; }
-        prefix++;
-        longStr++;
-    }
-    return true;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// strIsAlphaPrefix():
-//      Returns true if the prefix string is a prefix of longStr.
-//      Unlike strIsPrexix(), this version is case-insensitive and
-//      spaces are ignored.
-//      Example: strIsAlphaPrefix ("smith,j", "Smith, John") == true.
-inline bool
-strIsAlphaPrefix (const char * prefix, const char * longStr)
-{
-    typedef unsigned char U;
-    while (*prefix) {
-        while (*prefix == ' ') { prefix++; }
-        while (*longStr == ' ') { longStr++; }
-        if (*longStr == 0) { return false; }
-        if (tolower(U(*prefix)) != tolower(U(*longStr))) { return false; }
-        prefix++;
-        longStr++;
-    }
-    return true;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// strContains():
-//      Returns true if longStr contains an occurrence of keyStr,
-//      case-sensitive and NOT ignoring any characters such as spaces.
-inline bool
-strContains (const char * longStr, const char * keyStr)
-{
-    while (*longStr) {
-        if (strIsPrefix (keyStr, longStr)) { return true; }
-        longStr++;
-    }
-    return false;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// strAlphaContains():
-//      Returns true if longStr contains an occurrence of keyStr,
-//      case-insensitive and ignoring spaces.
-//      Example: strAlphaContains ("Smith, John", "th,j") == true.
-//
-inline bool
-strAlphaContains (const char * longStr, const char * keyStr)
-{
-    while (*longStr) {
-        if (strIsAlphaPrefix (keyStr, longStr)) { return true; }
-        longStr++;
-    }
-    return false;
 }
 
 inline uint
@@ -423,18 +353,37 @@ strLength (const char * str)
 //      end characters that match the trimChars.
 //      Returns the number of characters trimmed.
 //      E.g., strTrimRight("abcyzyz", "yz") would leave the string
-//      as "abc".
-inline void strTrimRight(char* target, const char* trimChars, size_t nTrimCh) {
-	const char* endTrim = trimChars + nTrimCh;
-	size_t iCh = strlen(target);
-	for (; iCh > 0; --iCh) {
-		if (std::find(trimChars, endTrim, target[iCh - 1]) == endTrim)
-			break;
+//      as "abc" and return 4.
+inline uint strTrimRight (char* target, const char* trimChars)
+{
+	int oldSz = strlen(target);
+	int sz = oldSz;
+	while (--sz >= 0) {
+		if (strchr(trimChars, target[sz]) == 0) break;
 	}
-	target[iCh] = '\0';
+	if (++sz == oldSz) return 0;
+	target[sz] = 0;
+	return oldSz - sz;
 }
-inline void strTrimRight(char* target) {
-	return strTrimRight(target, " \t\r\n", 4);
+
+
+//////////////////////////////////////////////////////////////////////
+//   FILE I/O Routines.
+// TODO: remove this functions
+
+uint    fileSize (const char * name, const char * suffix);
+uint    rawFileSize (const char * name);
+uint    gzipFileSize (const char * name);
+
+bool    fileExists (const char * fname, const char * suffix);
+errorT  renameFile (const char * oldName, const char * newName,
+                    const char * suffix);
+errorT  removeFile (const char * fname, const char * suffix);
+errorT  createFile (const char * fname, const char * suffix);
+
+errorT  writeString (FILE * fp, const char * str, uint length);
+errorT  readString  (FILE * fp, char * str, uint length);
+
 }
 
 #endif  // #ifdef SCID_MISC_H

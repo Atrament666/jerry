@@ -17,12 +17,14 @@
 #ifndef SCID_ERROR_H
 #define SCID_ERROR_H
 
+namespace scid {
+
 typedef   unsigned short   errorT;
 
 const errorT
     OK = 0,
 
-    // General Errors
+    // General Error:
     ERROR_General       =   1,
     ERROR_UserCancel    =   2,
     ERROR_BadArg        =   3,
@@ -39,7 +41,9 @@ const errorT
     ERROR_FileVersion    = 109,
     ERROR_OldScidVersion = 110,
     ERROR_FileReadOnly   = 111,
-    ERROR_CompactRemove  = 121,
+    ERROR_CompactRemoveIdx  = 121,
+    ERROR_CompactRemoveName = 122,
+    ERROR_CompactRemoveGame = 123,
 
     // Memory Allocation, corrupt data
     ERROR_MallocFailed   = 151,
@@ -53,10 +57,8 @@ const errorT
     ERROR_NoMatchFound   = 205,
     ERROR_NameDataLoss   = 206,
     ERROR_NameTooLong    = 207,
-    ERROR_NameLimit      = 208,
-    ERROR_OffsetLimit    = 209,
-    ERROR_GameLengthLimit= 210,
-    ERROR_NumGamesLimit  = 211,
+
+    ERROR_IndexFull      = 251,
 
     // Position errors
     ERROR_InvalidFEN     = 301,
@@ -72,14 +74,15 @@ const errorT
     ERROR_VariationLimit = 405,
     ERROR_Decode = 406,
     ERROR_GameFull = 407,
-    ERROR_CastlingAvailability = 408,
+
+    // Scan Errors
+    ERROR_PGNTag = 501,
 
     // Buffer errors
     ERROR_BufferFull = 601,
-    ERROR_BufferRead = 602,
+    ERROR_BufferRead = 602;
 
-    // Codec errors
-    ERROR_CodecUnsupFeat = 701;
+}
 
 #endif   // #ifdef SCID_ERROR_H
 

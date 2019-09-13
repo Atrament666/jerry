@@ -14,9 +14,45 @@
 
 #include "common.h"
 #include "misc.h"
+#include "sqmove.h"
+#include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>     // For isspace() function.
+#include <sys/stat.h>  // Needed for fileSize() function.
 #include <cmath>
+
+namespace scid {
+
+// Table of direction between any two chessboard squares
+directionT sqDir[66][66];
+struct sqDir_Init
+{
+    sqDir_Init() {
+        // Initialise the sqDir[][] array of directions between every pair
+        // of squares.
+        squareT i, j;
+        directionT dirArray[] = { UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT,
+                                  DOWN_LEFT, DOWN_RIGHT, NULL_DIR };
+        // First, set everything to NULL_DIR:
+        for (i=A1; i <= NS; i++) {
+            for (j=A1; j <= NS; j++) {
+                sqDir[i][j] = NULL_DIR;
+            }
+        }
+        // Now fill in the valid directions:
+        for (i=A1; i <= H8; i++) {
+            directionT * dirptr = dirArray;
+            while (*dirptr != NULL_DIR) {
+                j = square_Move (i, *dirptr);
+                while (j != NS) {
+                    sqDir[i][j] = *dirptr;
+                    j = square_Move (j, *dirptr);
+                }
+                dirptr++;
+            }
+        }
+    }
+} sqDir_Init_singleton;
 
 //////////////////////////////////////////////////////////////////////
 //   ECO Code Routines
@@ -119,7 +155,7 @@ eco_BasicCode (ecoT eco)
 
 /**
  * ecoReduce() - maps eco to a smaller set
- * @param eco: the eco value to convert (must be != 0)
+ * @eco: the eco value to convert (must be != 0)
  *
  * Scid ECO subcodes use 131 values for each canonical ECO.
  * For example A00 is divided in A00,A00a,A00a1,A00a2,A00a3,A00a4,A00b...A00z4
@@ -155,6 +191,22 @@ eco_LastSubCode (ecoT eco)
 
 //////////////////////////////////////////////////////////////////////
 //   String Routines
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strCopy(): same as strcpy().
+//
+void
+strCopy (char * target, const char * original)
+{
+    ASSERT (target != NULL  &&  original != NULL);
+    while (*original != 0) {
+        *target = *original;
+        target++;
+        original++;
+    }
+    *target = 0;
+}
+
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // strCopyExclude(): copies original to target, filtering out any
@@ -199,6 +251,129 @@ strAppend (char * target, const char * extra)
     return target;
 }
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Extra versions of strAppend() for appending an int, a uint, or
+// up to four strings:
+
+char *
+strAppend (char * target, int i)
+{
+    char temp [20];
+    sprintf (temp, "%d", i);
+    return strAppend (target, temp);
+}
+
+char *
+strAppend (char * target, uint u)
+{
+    char temp [20];
+    sprintf (temp, "%u", u);
+    return strAppend (target, temp);
+}
+
+char *
+strAppend (char * target, const char * s1, const char * s2)
+{
+    target = strAppend (target, s1);
+    target = strAppend (target, s2);
+    return target;
+}
+
+char *
+strAppend (char * target, const char * s1, const char * s2, const char * s3)
+{
+    target = strAppend (target, s1);
+    target = strAppend (target, s2);
+    target = strAppend (target, s3);
+    return target;
+}
+
+char *
+strAppend (char * target, const char * s1, const char * s2, const char * s3,
+           const char * s4)
+{
+    target = strAppend (target, s1);
+    target = strAppend (target, s2);
+    target = strAppend (target, s3);
+    target = strAppend (target, s4);
+    return target;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strCompare(): same as strcmp.
+//      strCompare_INLINE() is an inline version, see misc.h.
+//
+int
+strCompare (const char * s1, const char * s2)
+{
+    ASSERT (s1 != NULL  &&  s2 != NULL);
+    while (1) {
+        if (*s1 != *s2) {
+            return (int) *s1 - (int) *s2;
+        }
+        if (*s1 == 0)
+            break;
+        s1++; s2++;
+    }
+    return 0;
+}
+
+int strCaseCompare (const char * s1, const char * s2)
+{
+    ASSERT (s1 != NULL  &&  s2 != NULL);
+    while (1) {
+        int d = tolower(*s1) - tolower(*s2);
+        if (d != 0 || *s1 == 0) return d;
+        s1++; s2++;
+    }
+    return 0;
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strCompareRound():
+//    String comparison function for round names. Sorts by the integer
+//    number at the start of each string first.
+int
+strCompareRound (const char * sleft, const char * sright)
+{
+    int ileft = strGetInteger (sleft);
+    int iright = strGetInteger (sright);
+    int diff = ileft - iright;
+    if (diff != 0) { return diff; }
+
+    // Now check if both strings are equal up to the first dot.
+    // If so, do an integer comparison after the ".":
+
+    bool equalUpToDot = false;
+    const char * templeft = sleft;
+    const char * tempright = sright;
+
+    while (true) {
+        char leftc = *templeft;
+        char rightc = *tempright;
+        if (leftc == 0  ||  rightc == 0) { break; }
+        if (leftc != rightc) { break; }
+        if (leftc == '.'  &&  rightc == '.') { equalUpToDot = true; break; }
+        templeft++;
+        tempright++;
+    }
+
+    if (equalUpToDot) {
+        templeft++;
+        tempright++;
+        // Now templeft and tempright point to the first character
+        // after each dot.
+        ileft = strGetInteger (templeft);
+        iright = strGetInteger(tempright);
+        diff = ileft - iright;
+        if (diff != 0) { return diff; }
+    }
+    
+    // Give up on integer comparisons and do a regular string comparison:
+    return strCompare (sleft, sright);
+}
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // strDuplicate(): Duplicates a string using new[] operator.
 //
@@ -216,6 +391,24 @@ strDuplicate (const char * original)
     *s = 0;   // Add trailing '\0'.
     //printf ("Dup: %p: %s\n", newStr, newStr);
     return newStr;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strPrefix():
+//       Returns the length of the common prefix of two strings.
+//
+uint
+strPrefix (const char * s1, const char * s2)
+{
+    ASSERT (s1 != NULL  &&  s2 != NULL);
+    uint count = 0;
+    while (*s1 == *s2) {
+        if (*s1 == 0) { // seen end of string, strings are identical
+            return count;
+        }
+        count++; s1++; s2++;
+    }
+    return count;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -431,6 +624,38 @@ strTrimMarkup (char * str)
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strTrimSurname():
+//    Trims a person name string to contain only the
+//    surname, or only the surname and a maximum number
+//    of initials.
+void
+strTrimSurname (char * str, uint initials)
+{
+    char * in = str;
+    char * out = str;
+    bool seenComma = false;
+
+    while (*in != 0) {
+        char ch = *in;
+        if (seenComma) {
+            if (isupper(ch)) {
+                *out++ = ch;
+                initials--;
+                if (initials == 0) { break; }
+            }
+        } else {
+            if (ch == ',') {
+                seenComma = true;
+                if (initials == 0) { break; }
+            }
+            *out++ = ch;
+        }
+        in++;
+    }
+    *out = 0;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // strFirstWord:
 //    Skips over all whitespace at the start of the
 //    string to reach the first word.
@@ -438,7 +663,7 @@ const char *
 strFirstWord (const char * str)
 {
     ASSERT (str != NULL);
-    while (*str != 0  &&  isspace(static_cast<unsigned char>(*str))) { str++; }
+    while (*str != 0  &&  isspace(*str)) { str++; }
     return str;
 }
 
@@ -451,10 +676,24 @@ const char *
 strNextWord (const char * str)
 {
     ASSERT (str != NULL);
-    while (*str != 0  &&  !isspace(static_cast<unsigned char>(*str))) { str++; }
-    while (*str != 0  &&  isspace(static_cast<unsigned char>(*str))) { str++; }
+    while (*str != 0  &&  !isspace(*str)) { str++; }
+    while (*str != 0  &&  isspace(*str)) { str++; }
     return str;
 }
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strIsAllWhitespace():
+//    Returns true if the string contains only whitespace characters.
+bool
+strIsAllWhitespace (const char * str)
+{
+    while (*str != 0) {
+        if (! isspace(*str)) { return false; }
+        str++;
+    }
+    return true;
+}
+
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // strIsUnknownName():
@@ -468,6 +707,59 @@ strIsUnknownName (const char * str)
     if (str[0] == '-'  &&  str[1] == 0) { return true; }
     if (str[0] == '?'  &&  str[1] == 0) { return true; }
     return false;
+}
+
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strIsPrefix():
+//      Returns true if the prefix string is a prefix of longStr.
+bool
+strIsPrefix (const char * prefix, const char * longStr)
+{
+    while (*prefix) {
+        if (*longStr == 0) { return false; }
+        if (*prefix != *longStr) { return false; }
+        prefix++;
+        longStr++;
+    }
+    return true;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strIsCasePrefix():
+//      Returns true if the prefix string is a case-insensitive
+//      prefix of longStr.
+bool
+strIsCasePrefix (const char * prefix, const char * longStr)
+{
+    while (*prefix) {
+        if (*longStr == 0) { return false; }
+        if (tolower(*prefix) != tolower(*longStr)) { return false; }
+        prefix++;
+        longStr++;
+    }
+    return true;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strIsAlphaPrefix():
+//      Returns true if the prefix string is a prefix of longStr.
+//      Unlike strIsPrexix(), this version is case-insensitive and
+//      spaces are ignored.
+//      Example: strIsAlphaPrefix ("smith,j", "Smith, John") == true.
+bool
+strIsAlphaPrefix (const char * prefix, const char * longStr)
+{
+    while (*prefix) {
+        while (*prefix == ' ') { prefix++; }
+        while (*longStr == ' ') { longStr++; }
+        if (*longStr == 0) { return false; }
+        if (tolower(*prefix) != tolower(*longStr)) { return false; }
+        prefix++;
+        longStr++;
+    }
+    return true;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -488,6 +780,67 @@ strIsSurnameOnly (const char * name)
         s++;
     }
     return true;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strContains():
+//      Returns true if longStr contains an occurrence of keyStr,
+//      case-sensitive and NOT ignoring any characters such as spaces.
+bool
+strContains (const char * longStr, const char * keyStr)
+{
+    while (*longStr) {
+        if (strIsPrefix (keyStr, longStr)) { return true; }
+        longStr++;
+    }
+    return false;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strCaseContains():
+//      Returns true if longStr contains an occurrence of keyStr,
+//      case-insensitive and NOT ignoring any characters such as spaces.
+bool
+strCaseContains (const char * longStr, const char * keyStr)
+{
+    while (*longStr) {
+        if (strIsCasePrefix (keyStr, longStr)) { return true; }
+        longStr++;
+    }
+    return false;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strContainsIndex():
+//      Returns the first index if longStr contains an occurrence of keyStr,
+//      case-sensitive and NOT ignoring any characters such as spaces.
+//      Returns -1 if longStr does not contain keyStr
+int
+strContainsIndex (const char * longStr, const char * keyStr)
+{
+    int index = 0;
+    while (*longStr) {
+        if (strIsPrefix (keyStr, longStr)) { return index; }
+        longStr++;
+        index++;
+    }
+    return -1;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strAlphaContains():
+//      Returns true if longStr contains an occurrence of keyStr,
+//      case-insensitive and ignoring spaces.
+//      Example: strAlphaContains ("Smith, John", "th,j") == true.
+//
+bool
+strAlphaContains (const char * longStr, const char * keyStr)
+{
+    while (*longStr) {
+        if (strIsAlphaPrefix (keyStr, longStr)) { return true; }
+        longStr++;
+    }
+    return false;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -531,6 +884,28 @@ strGetBoolean (const char * str)
     return false;
 }
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strGetInteger():
+//    Extracts a signed base-10 value from a string.
+//    Defaults to zero (as strtol does) for non-numeric strings.
+int
+strGetInteger (const char * str)
+{
+    return strtol (str, NULL, 10);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strGetUnsigned():
+//    Extracts an unsigned base-10 value from a string.
+//    Defaults to zero (as strtoul does) for non-numeric strings.
+//
+uint
+strGetUnsigned (const char * str)
+{
+    unsigned long ulvalue = strtoul (str, NULL, 10);
+    return (uint) ulvalue;
+}
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // strGetIntegers:
 //    Extracts the specified number of signed integers in a
@@ -539,9 +914,9 @@ void
 strGetIntegers (const char * str, int * results, uint nResults)
 {
     for (uint i=0; i < nResults; i++) {
-        while (*str != 0  &&  isspace(static_cast<unsigned char>(*str))) { str++; }
+        while (*str != 0  &&  isspace(*str)) { str++; }
         results[i] = strGetInteger (str);
-        while (*str != 0  &&  !isspace(static_cast<unsigned char>(*str))) { str++; }
+        while (*str != 0  &&  !isspace(*str)) { str++; }
     }
 }
 
@@ -553,9 +928,23 @@ void
 strGetUnsigneds (const char * str, uint * results, uint nResults)
 {
     for (uint i=0; i < nResults; i++) {
-        while (*str != 0  &&  isspace(static_cast<unsigned char>(*str))) { str++; }
+        while (*str != 0  &&  isspace(*str)) { str++; }
         results[i] = strGetUnsigned (str);
-        while (*str != 0  &&  !isspace(static_cast<unsigned char>(*str))) { str++; }
+        while (*str != 0  &&  !isspace(*str)) { str++; }
+    }
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// strGetBooleans:
+//    Extracts the specified number of boolean values
+//    from a whitespace-separated string.
+void
+strGetBooleans (const char * str, bool * results, uint nResults)
+{
+    for (uint i=0; i < nResults; i++) {
+        while (*str != 0  &&  isspace(*str)) { str++; }
+        results[i] = strGetBoolean (str);
+        while (*str != 0  &&  !isspace(*str)) { str++; }
     }
 }
 
@@ -670,6 +1059,137 @@ strUniqueExactMatch (const char * keyStr, const char ** strTable, bool exact)
     }
     // Otherwise, return the match found:
     return index;
+}
+
+
+//////////////////////////////////////////////////////////////////////
+//   FILE I/O Routines
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// fileSize():
+//    Computes the plain (uncompressed) size of the named file,
+//    using one of the other FileSize functions here.
+uint
+fileSize (const char * name, const char * suffix)
+{
+    fileNameT fname;
+    strCopy (fname, name);
+    strAppend (fname, suffix);
+    const char * lastSuffix = strFileSuffix (fname);
+    if (lastSuffix != NULL  &&  strEqual (lastSuffix, GZIP_SUFFIX)) {
+        return gzipFileSize (fname);
+    }
+    return rawFileSize (fname);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// rawFileSize():
+//    Uses the stat() system call to get the size of the file.
+//    Returns 0 if any error occurs.
+uint
+rawFileSize (const char * name)
+{
+    struct stat statBuf;    // Defined in <sys/stat.h>
+    if (stat (name, &statBuf) != 0) {
+        return 0;
+    }
+    return (uint) statBuf.st_size;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// gzipFileSize():
+//    Returns the UNCOMPRESSED size of a .gz file.
+//    This is stored the final 4 bytes, in little endian format.
+//    Returns 0 if any error occurs.
+uint
+gzipFileSize (const char * name)
+{
+    FILE * fp;
+    fp = fopen (name, "rb");
+    if (fp == NULL) { return 0; }
+    // Seek to 4 bytes from the end:
+    if (fseek (fp, -4L, SEEK_END) != 0) {
+        fclose (fp);
+        return 0;
+    }
+    // Read the 4-byte number in little-endian format:
+    uint size = 0;
+    uint b0 = (uint) getc(fp);
+    uint b1 = (uint) getc(fp);
+    uint b2 = (uint) getc(fp);
+    uint b3 = (uint) getc(fp);
+    size = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
+    fclose (fp);
+    return size;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// renameFile():
+//      Renames the file from oldName to newName with the same suffix.
+//      Returns OK if successfull, ERROR_FileMode otherwise.
+errorT
+renameFile (const char * oldName, const char * newName, const char * suffix)
+{
+    fileNameT fnameOld, fnameNew;
+
+    strCopy (fnameOld, oldName);
+    strAppend (fnameOld, suffix);
+    strCopy (fnameNew, newName);
+    strAppend (fnameNew, suffix);
+
+    if (rename (fnameOld, fnameNew) != 0) {
+        return ERROR_FileMode;
+    }
+    return OK;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// removeFile():
+//      Removes the file given the filename and suffix.
+//      Returns OK if successfull, ERROR_FileMode otherwise.
+errorT
+removeFile (const char * name, const char * suffix)
+{
+    fileNameT fname;
+    strCopy (fname, name);
+    strAppend (fname, suffix);
+
+    if (remove (fname) != 0) {
+        return ERROR_FileMode;
+    }
+    return OK;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// writeString(), readString():
+//      Read/write fixed-length strings.
+//      Lengths of zero bytes ARE allowed.
+errorT
+writeString (FILE * fp, const char * str, uint length)
+{
+    ASSERT (fp != NULL  &&  str != NULL);
+    int result = 0;
+    while (length > 0) {
+        result = putc(*str, fp);
+        str++;
+        length--;
+    }
+    return (result == EOF ? ERROR_FileWrite : OK);
+}
+
+errorT
+readString (FILE * fp, char * str, uint length)
+{
+    ASSERT (fp != NULL  &&  str != NULL);
+    while (length > 0) {
+        *str = getc(fp);
+        str++;
+        length--;
+    }
+    return OK;
+}
+
 }
 
 //////////////////////////////////////////////////////////////////////

@@ -16,7 +16,12 @@
 #ifndef SCID_COMMON_H
 #define SCID_COMMON_H
 
-#include <cstddef>
+#if __cplusplus >= 201103L || defined(__GXX_EXPERIMENTAL_CXX0X__) || _MSC_VER > 1600
+	#define CPP11_SUPPORT 1
+#else
+	#define CPP11_SUPPORT 0
+#endif
+
 #if defined(_MSC_VER) && _MSC_VER <= 1600
 typedef unsigned __int8   uint8_t;
 typedef unsigned __int16  uint16_t;
@@ -29,8 +34,31 @@ typedef __int32  int32_t;
 
 #include "error.h"
 
+namespace scid {
+
+#ifdef ZLIB
+	#include <zlib.h>
+	inline bool gzable() { return true; }
+#else
+	// If the zlib compression library is NOT used, create dummy inline
+	// functions to replace those used in zlib, which saves wrapping every
+	// zlib function call with #ifndef conditions.
+	inline bool gzable() { return false; }
+	typedef void * gzFile;
+	inline gzFile gzopen (const char * name, const char * mode) { return 0; }
+	inline int gzputc (gzFile fp, int c) { return c; }
+	inline int gzgetc (gzFile fp) { return -1; }
+	inline int gzread (gzFile fp, unsigned char* buffer, int length) { return 0; }
+	inline int gzeof (gzFile fp) { return 1; }
+	inline int gzseek (gzFile fp, int offset, int where) { return 0; }
+	inline int gzclose (gzFile fp) { return 0; }
+#endif
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // CONSTANTS:
+
+// Buffer sizes
+#define BBUF_SIZE 256000 //120000
 
 typedef unsigned short versionT;
 
@@ -40,9 +68,11 @@ typedef unsigned short versionT;
 const versionT SCID_VERSION = 400;     // Current file format version = 4.0
 const versionT SCID_OLDEST_VERSION = 300; // Oldest readable file format: 3.0
 
-const char SCID_VERSION_STRING[] = "4.7.1";     // Current Scid version
+const char SCID_VERSION_STRING[] = "4.6.4";     // Current Scid version
 const char SCID_WEBSITE[] = "http://scid.sourceforge.net/";
 
+const char GZIP_SUFFIX[] = ".gz";
+const char ZIP_SUFFIX[] = ".zip";
 const char PGN_SUFFIX[] = ".pgn";
 
 
@@ -52,8 +82,17 @@ const char PGN_SUFFIX[] = ".pgn";
 //    if an assert fails you can go to the code to see why) and that
 //    it MUST be a statement, not part of a larger expression.
 //    Adapted from the book "Writing Solid Code".
+
+
+#ifdef ASSERTIONS
 #include <assert.h>
-#define ASSERT(f) assert(f)
+    #define ASSERT(f) assert(f)
+
+#else   // #ifndef ASSERTIONS
+
+    #define ASSERT(f) 
+
+#endif  // #ifdef ASSERTIONS
 
 
 // Bit Manipulations
@@ -83,7 +122,7 @@ const char PGN_SUFFIX[] = ".pgn";
 
 //  General types
 
-typedef unsigned char byte;      //  8 bit unsigned
+typedef uint8_t  byte;           //  8 bit unsigned
 typedef uint16_t ushort;         // 16 bit unsigned
 typedef uint32_t uint;           // 32 bit unsigned
 typedef int32_t  sint;           // 32 bit signed
@@ -143,18 +182,6 @@ enum fileModeT {
 
 typedef uint    dateT;
 
-
-// There are four name types: PLAYER, EVENT, SITE and ROUND tags.
-// Names are accessed through IDs.
-typedef uint32_t idNumberT; // Should be idNameT
-typedef unsigned nameT;
-enum {
-    NAME_PLAYER, NAME_EVENT, NAME_SITE, NAME_ROUND,
-    NUM_NAME_TYPES,
-    NAME_INVALID = 99
-};
-
-
 //  Game Information types
 
 typedef uint            gamenumT;
@@ -189,6 +216,7 @@ const resultT
     RESULT_Draw  = 3;
 
 const uint RESULT_SCORE[4] = { 1, 2, 0, 1 };
+const uint RESULT_SORT[4] = { 1, 3, 0, 2 };
 const char RESULT_CHAR [4]       = { '*',  '1',    '0',    '='       };
 const char RESULT_STR [4][4]     = { "*",  "1-0",  "0-1",  "=-="     };
 const char RESULT_LONGSTR [4][8] = { "*",  "1-0",  "0-1",  "1/2-1/2" };
@@ -219,13 +247,13 @@ const castleDirT  QSIDE = 0,  KSIDE = 1;
 // PIECE TYPES (without color; same value as a white piece)
 
 const pieceT
-    INVALID_PIECE = 0,
     KING = 1,
     QUEEN = 2,
     ROOK = 3,
     BISHOP = 4,
     KNIGHT = 5,
-    PAWN = 6;
+    PAWN = 6,
+    ANY_PIECE = 7;
 
 // PIECES:
 //   Note that color(x) == ((x & 0x8) >> 3)  and  type(x) == (x & 0x7)
@@ -322,7 +350,7 @@ piece_IsSlider(pieceT p) { return PIECE_IS_SLIDER[piece_Type(p)]; }
 piece_Char(pieceT p)  { return PIECE_CHAR[piece_Type(p)]; }
 
   inline pieceT
-piece_FromChar(int x)
+piece_FromChar(char x)
 {
     switch (x) {
     case 'K': return KING;
@@ -623,6 +651,11 @@ direction_Delta (directionT dir)
     return dirDelta[dir];
 }
 
+// sqDir[][]: Array listing the direction between any two squares.
+//    For example, sqDir[A1][B2] == UP_RIGHT, and sqDir[A1][C2] == NULL_DIR.
+//    It is initialised with the function scid_Init() in misc.cpp
+extern directionT  sqDir[66][66];
+
 // The starting Board
 //
   const boardT
@@ -683,6 +716,8 @@ square_Adjacent (squareT from, squareT to)
     int fdist = (int)fromFyle - (int)toFyle;
     if (fdist < -1  ||  fdist > 1) { return false; }
     return true;
+}
+
 }
 
 #endif  // #ifdef SCID_COMMON_H

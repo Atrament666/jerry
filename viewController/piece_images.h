@@ -28,17 +28,17 @@ class PieceImages
 {
 public:
     PieceImages(QString resourcePath);
-    QImage* getPieceImage(pieceT piece_type, colorT color, int size, qreal dpr, int type=0);
+    QImage* getPieceImage(scid::pieceT piece_type, scid::colorT color, int size, qreal dpr, int type=0);
 
 private:
     QString resourcePath;
-    QHash<std::pair<pieceT,colorT>, QSvgRenderer*> *svg_images_merida;
-    QHash<std::pair<pieceT,colorT>, QSvgRenderer*> *svg_images_old;
-    QHash<std::pair<pieceT,colorT>, QSvgRenderer*> *svg_images_uscf;
+    QHash<std::pair<scid::pieceT,scid::colorT>, QSvgRenderer*> *svg_images_merida;
+    QHash<std::pair<scid::pieceT,scid::colorT>, QSvgRenderer*> *svg_images_old;
+    QHash<std::pair<scid::pieceT,scid::colorT>, QSvgRenderer*> *svg_images_uscf;
     QHash<QString, QImage*> *rendered_svg_images_merida;
     QHash<QString, QImage*> *rendered_svg_images_old;
     QHash<QString, QImage*> *rendered_svg_images_uscf;
-    void initSvgs(QHash<std::pair<pieceT,colorT>, QSvgRenderer*> *svg_images, QString &pieceStyle);
+    void initSvgs(QHash<std::pair<scid::pieceT,scid::colorT>, QSvgRenderer*> *svg_images, QString &pieceStyle);
 
 };
 

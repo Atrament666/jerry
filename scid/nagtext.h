@@ -13,6 +13,8 @@
 //
 //////////////////////////////////////////////////////////////////////
 
+namespace scid {
+
 // 7-bit rewritten 
 // following http://www.exeterchessclub.org.uk/nags.html
 
@@ -249,3 +251,4 @@ const char * evalNagsRegular [] =
 //-------------------- UTF-8 Edition --------------------
 // to follow
 
+}

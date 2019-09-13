@@ -13,11 +13,12 @@ void ScidTest::run() {
     // basic game creation
     // wrong: use g.GetCurrentPos and ReadCoordMove first!
 
-    Game g;
-    simpleMoveT move_e2e4;
-    move_e2e4.from = E2;
-    move_e2e4.to = E4;
-    g.AddMove(&move_e2e4);
+    scid::Game g;
+    scid::simpleMoveT move_e2e4;
+    move_e2e4.from = scid::E2;
+    move_e2e4.to = scid::E4;
+    char* snp = (char *)"e4";  // extremely fugly
+    g.AddMove(&move_e2e4, snp);
     char san[CHAR_MAX];
     g.GetSAN(san);
     std::cout << "game.getSan()" << san << std::endl;
@@ -25,15 +26,15 @@ void ScidTest::run() {
     std::cout << "game.WriteToPGN(), first :" << ret.first << std::endl;
     std::cout << "game.WriteToPGN(), second:" << ret.second << std::endl;
 
-    simpleMoveT move_e2e3;
+    scid::simpleMoveT move_e2e3;
 
     // proper way of reading moves:
 
-    Position * pos = g.GetCurrentPos();
-    errorT err = pos->ReadCoordMove(&move_e2e3, "e2e3", 4, false);
+    scid::Position * pos = g.GetCurrentPos();
+    scid::errorT err = pos->ReadCoordMove(&move_e2e3, "e2e3", 4);
 
     std::cout << "game.addMove illegal:" << err << std::endl;
-    if(err == ERROR_InvalidMove) {
+    if(err == scid::ERROR_InvalidMove) {
         std::cout << "bad move!" << std::endl;
     }
 

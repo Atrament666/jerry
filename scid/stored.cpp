@@ -34,7 +34,7 @@
 // because of its end material value or pawn configuration, all games with
 // that stored line code can be excluded and skipped without decoding.
 
-namespace {
+namespace scid {
 	
 class Board {
 	pieceT b_[64];
@@ -57,7 +57,7 @@ public:
 		}
 	}
 	bool operator==(const Board& b) const {
-		return (std::memcmp(b_, b.b_, sizeof b_) == 0);
+		return (memcmp(b_, b.b_, sizeof b_) == 0);
 	}
 	bool neverMatch(const Board& m) const {
 		// Pawns allows to exclude some games:
@@ -82,7 +82,12 @@ public:
 	}
 };
 
-constexpr FullMove fm[] = {
+}
+
+// was: anonymous namespace
+namespace scid {
+
+FullMove fm[] = {
  // "1.b3"
  0x6000251,
  // "1.c4"
@@ -594,6 +599,8 @@ constexpr FullMove fm[] = {
 };
 } // End of anonymous namespace
 
+namespace scid {
+
 const FullMove* StoredLine::Moves_ [STORED_LINES +1] = {
 // index zero is unused
 // last index ( Moves_[STORED_LINES] ) is used to detect the end of the array
@@ -631,11 +638,9 @@ fm +1512, fm +1514, fm +1517, fm +1519, fm +1522, fm +1525, fm +1528, fm +1530,
 fm +1532, fm +1535, fm +1539, fm +1543, fm +1547, fm +1552, fm +1555, fm +1559
 };
 
-StoredLine::StoredLine(const pieceT* board, colorT toMove)
+StoredLine::StoredLine(pieceT* board, colorT toMove)
 {
 	Board search(board);
-	matches_[0] = -1;
-	matches_[STORED_LINES] = -1;
 	for (uint line = 1; line < STORED_LINES; line++) {
 		Board b(START_BOARD);
 		const FullMove* end = Moves_[line +1];
@@ -654,3 +659,4 @@ StoredLine::StoredLine(const pieceT* board, colorT toMove)
 	}
 }
 
+}

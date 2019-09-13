@@ -17,8 +17,9 @@
 #define SCID_MATSIG_H
 
 #include "common.h"
-#include <algorithm>
 #include <string>
+
+namespace scid {
 
 // Matsigs are 32-bit unsigned ints.  We only use 24 bits of this.
 
@@ -217,25 +218,9 @@ matsig_isReachablePawns (matSigT mStart, matSigT mTarget)
     return true;
 }
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// matsig_Make():
-//      Make a material sig, given an array of material counts as
-//      stored in a Position.
-//
-inline matSigT matsig_Make(const byte* materialCounts) {
-    matSigT m = 0;
-    m |= std::min<matSigT>(3, materialCounts[WQ]) << SHIFT_WQ;
-    m |= std::min<matSigT>(3, materialCounts[WR]) << SHIFT_WR;
-    m |= std::min<matSigT>(3, materialCounts[WB]) << SHIFT_WB;
-    m |= std::min<matSigT>(3, materialCounts[WN]) << SHIFT_WN;
-    m |= matSigT(materialCounts[WP]) << SHIFT_WP;
-    m |= std::min<matSigT>(3, materialCounts[BQ]) << SHIFT_BQ;
-    m |= std::min<matSigT>(3, materialCounts[BR]) << SHIFT_BR;
-    m |= std::min<matSigT>(3, materialCounts[BB]) << SHIFT_BB;
-    m |= std::min<matSigT>(3, materialCounts[BN]) << SHIFT_BN;
-    m |= matSigT(materialCounts[BP]) << SHIFT_BP;
-    return m;
-}
+matSigT
+matsig_Make (byte * materialCounts);
+
 
 
 // Common HPSigs:
@@ -289,56 +274,6 @@ hpSig_ClearPawn (uint hpSig, colorT color, fyleT fyle)
     return hpSig & ~(hpSig_bitMask [val]);
 }
 
-/**
- * Creates a 16-bits bitmap of the missing pawns in the home ranks.
- *
- * Used to speed up the searches of positions with the same pawn structure.
- * @returns a std::pair containing the bitmap and the number of moved pawns.
- */
-inline std::pair<uint16_t, uint16_t> hpSig_make(const pieceT* board) {
-	int hpSig = 0;
-	int nMoved = 0;
-	const pieceT* b = board + A2;
-	// clang-format off
-	if (*b != WP) { hpSig |= 0x8000; ++nMoved; }  b++;  /* a2 */
-	if (*b != WP) { hpSig |= 0x4000; ++nMoved; }  b++;  /* b2 */
-	if (*b != WP) { hpSig |= 0x2000; ++nMoved; }  b++;  /* c2 */
-	if (*b != WP) { hpSig |= 0x1000; ++nMoved; }  b++;  /* d2 */
-	if (*b != WP) { hpSig |= 0x0800; ++nMoved; }  b++;  /* e2 */
-	if (*b != WP) { hpSig |= 0x0400; ++nMoved; }  b++;  /* f2 */
-	if (*b != WP) { hpSig |= 0x0200; ++nMoved; }  b++;  /* g2 */
-	if (*b != WP) { hpSig |= 0x0100; ++nMoved; }        /* h2 */
-	b = board + A7;
-	if (*b != BP) { hpSig |= 0x0080; ++nMoved; }  b++;  /* a7 */
-	if (*b != BP) { hpSig |= 0x0040; ++nMoved; }  b++;  /* b7 */
-	if (*b != BP) { hpSig |= 0x0020; ++nMoved; }  b++;  /* c7 */
-	if (*b != BP) { hpSig |= 0x0010; ++nMoved; }  b++;  /* d7 */
-	if (*b != BP) { hpSig |= 0x0008; ++nMoved; }  b++;  /* e7 */
-	if (*b != BP) { hpSig |= 0x0004; ++nMoved; }  b++;  /* f7 */
-	if (*b != BP) { hpSig |= 0x0002; ++nMoved; }  b++;  /* g7 */
-	if (*b != BP) { hpSig |= 0x0001; ++nMoved; }        /* h7 */
-	// clang-format on
-
-	return {static_cast<uint16_t>(hpSig), static_cast<uint16_t>(nMoved)};
-}
-
-inline bool hpSig_match(int hpSig, int nMoved, const byte* changeList) {
-	// The first byte of a changeList is the length (in halfbytes) of the
-	// list, which can be any value from 0 to 16 inclusive.
-	if (*changeList == 16 && nMoved == 16)
-		return true;
-	if (*changeList++ < nMoved)
-		return false;
-
-	int sig = 0;
-	for (int i = 0, n = nMoved / 2; i < n; ++i) {
-		sig |= 1 << (*changeList >> 4);
-		sig |= 1 << (*changeList++ & 0x0F);
-	}
-	if (nMoved & 1)
-		sig |= 1 << (*changeList >> 4);
-
-	return sig == hpSig;
 }
 
 #endif

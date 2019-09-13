@@ -62,7 +62,7 @@ public:
     GameModel(QObject *parent = 0);
     ~GameModel();
     //chess::Game* getGame();
-    Game g;
+    scid::Game g;
     //void setGame(chess::Game *g);
     void triggerStateChange();
     int getMode();
