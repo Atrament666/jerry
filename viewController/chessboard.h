@@ -6,10 +6,11 @@
 #include "viewController/colorstyle.h"
 //#include "chess/board.h"
 //#include "chess/game_node.h"
+#include "scid/position.h"
 
 struct GrabbedPiece {
-    int piece_type;
-    int color;
+    scid::pieceT piece_type;
+    scid::colorT color;
     int x;
     int y;
 };
@@ -24,7 +25,7 @@ public:
     ColorStyle* getColorStyle();
     void setFlipBoard(bool onOff);
     void setGrabbedPiece(int piece, int color);
-    //void setBoard(chess::Board b);
+    void setBoard(scid::Position p);
     //void setArrows(QVector<chess::Arrow> arrows);
     //void setColoredFields(QVector<chess::ColoredField> fields);
 
@@ -53,6 +54,7 @@ protected:
     int borderWidth;
     PieceImages *pieceImages;
     //chess::Board board;
+    scid::Position currentPos;
 
     // device pixel ratio
     qreal dpr;
@@ -63,6 +65,8 @@ protected:
 
     void paintEvent(QPaintEvent *e);
     //void resizeEvent(QResizeEvent *e);
+    QPoint scidSqureToPos(int boardOffsetX, int boardOffsetY,
+                          int squareSize, scid::squareT square);
 
 signals:
 

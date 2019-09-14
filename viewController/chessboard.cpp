@@ -6,11 +6,12 @@
 #include <QPainter>
 #include <QWindow>
 #include <math.h>
+#include <iostream>
+#include <QDebug>
 
 Chessboard::Chessboard(QWidget *parent) :
     QWidget(parent)
-{
-    /*
+{    
     QSizePolicy policy = QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     this->setSizePolicy(policy);
 
@@ -18,16 +19,18 @@ Chessboard::Chessboard(QWidget *parent) :
     this->borderWidth = f.height();
     this->style = new ColorStyle(ResourceFinder::getPath());
     this->pieceImages = new PieceImages(ResourceFinder::getPath());
-    this->board = new chess::Board(true);
+    //this->board = new chess::Board(true);
+    this->currentPos.StdStart();
+    this->currentPos.AddPiece(scid::KNIGHT, scid::E4);
 
     this->moveSrc = new QPoint(-1,-1);
     this->drawGrabbedPiece = false;
-    this->grabbedPiece = new GrabbedPiece{chess::EMPTY,chess::WHITE,-1,-1};
+    this->grabbedPiece = new GrabbedPiece{scid::EMPTY,scid::WHITE,-1,-1};
     this->flipBoard = false;
 
     this->drawGrabbedArrow = false;
     this->arrowGrabColor = new QColor(70,130,0);
-    this->grabbedArrow = new chess::Arrow{QPoint(-1,-1), QPoint(-1,-1), *arrowGrabColor};
+    //this->grabbedArrow = new chess::Arrow{QPoint(-1,-1), QPoint(-1,-1), *arrowGrabColor};
 
     this->lastMoveColor = new QColor(200,200,0,100);
 
@@ -39,7 +42,7 @@ Chessboard::Chessboard(QWidget *parent) :
     this->dpr = this->devicePixelRatio();
 
     //this->lastMove = 0;
-    */
+
 }
 
 // todo: destructor missing (pointer members)
@@ -57,10 +60,10 @@ void Chessboard::calculateBoardSize(int *boardSize, int *squareSize) {
     *squareSize = sSize;
 }
 
-/*
-void Chessboard::setBoard(chess::Board b) {
-    this->board = b;
-} */
+
+void Chessboard::setBoard(scid::Position p) {
+    this->currentPos = p;
+}
 
 /*
 void Chessboard::setArrows(QVector<chess::Arrow> arrows) {
@@ -76,7 +79,7 @@ void Chessboard::setColoredFields(QVector<chess::ColoredField> fields) {
 void Chessboard::setGrabbedArrowFrom(int x, int y) {
     this->grabbedArrow->from.setX(x);
     this->grabbedArrow->from.setY(y);
-} */
+}*/
 
 /*
 void Chessboard::setGrabbedArrowTo(int x, int y) {
@@ -122,9 +125,46 @@ void Chessboard::setGrabbedPiece(int pieceType, int color) {
     this->grabbedPiece->color = color;
 }
 
-void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
+QPoint Chessboard::scidSqureToPos(int boardOffsetX, int boardOffsetY,
+                                  int squareSize, scid::squareT square) {
 
-    /*
+    scid::rankT rank = scid::square_Rank(square);
+    scid::fyleT fyle = scid::square_Fyle(square);
+
+    int i = -1;
+    if(fyle == scid::A_FYLE) { i = 0; };
+    if(fyle == scid::B_FYLE) { i = 1; };
+    if(fyle == scid::C_FYLE) { i = 2; };
+    if(fyle == scid::D_FYLE) { i = 3; };
+    if(fyle == scid::E_FYLE) { i = 4; };
+    if(fyle == scid::F_FYLE) { i = 5; };
+    if(fyle == scid::G_FYLE) { i = 6; };
+    if(fyle == scid::H_FYLE) { i = 7; };
+
+    int x = boardOffsetX+((7-i)*squareSize);
+
+    int j = -1;
+    if(rank == scid::RANK_1) { j = 0; };
+    if(rank == scid::RANK_2) { j = 1; };
+    if(rank == scid::RANK_3) { j = 2; };
+    if(rank == scid::RANK_4) { j = 3; };
+    if(rank == scid::RANK_5) { j = 4; };
+    if(rank == scid::RANK_6) { j = 5; };
+    if(rank == scid::RANK_7) { j = 6; };
+    if(rank == scid::RANK_8) { j = 7; };
+
+    int y = -1;
+    if(this->flipBoard) {
+        y = boardOffsetY+(j*squareSize);
+    } else {
+        y = boardOffsetY+((7-j)*squareSize);
+    }
+
+    return QPoint(x,y);
+
+}
+
+void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
 
     // to have no border color when drawing board squares and pieces
     QPen penZero = QPen(Qt::black, 1, Qt::NoPen);
@@ -161,8 +201,6 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
         pxDark = this->style->lightSquareTexture;
     }
 
-    chess::Board board = this->board;
-
     for(int i=0;i<8;i++) {
         for(int j=0;j<8;j++) {
             // draw alternatively light and dark squares
@@ -193,6 +231,7 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
         }
     }
 
+    /*
     // draw colored field of last move
     if(!this->lastMove.is_null) {
         QPoint xyFrom = this->lastMove.fromAsXY();
@@ -217,21 +256,31 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
             y = boardOffsetY+((7-xyTo.y())*squareSize);
         }
         painter->drawRect(x,y,squareSize,squareSize);
+    }*/
+
+
+    std::cout << "painting pieces" << std::endl;
+    const scid::pieceT* board = this->currentPos.GetBoard();
+    std::cout << "square a1: " << scid::A1 << std::endl;
+    qDebug() << scid::A1;
+    //this->flipBoard = true;
+    for(scid::squareT square_i = scid::A1; square_i <= scid::H8; square_i++) {
+
+        std::cout << "square i: " << square_i << std::endl;
+        QPoint xy = this->scidSqureToPos(boardOffsetX, boardOffsetY, squareSize, square_i);
+        scid::pieceT piece_i = board[square_i];
+        scid::pieceT piece_type_i = scid::piece_Type(piece_i);
+        scid::colorT piece_color_i = scid::piece_Color(piece_i);
+
+        if(piece_type_i >= scid::KING && piece_type_i <= scid::PAWN &&
+                (piece_color_i == scid::WHITE || piece_color_i == scid::BLACK)) {
+            std::cout << "square i piece: " << +(piece_type_i) <<  std::endl;
+            QImage *piece_image = this->pieceImages->getPieceImage(piece_type_i, piece_color_i, squareSize, this->dpr);
+            painter->drawImage(xy.x(),xy.y(),*piece_image);
+        }
     }
 
-    for(int i=0;i<8;i++) {
-        for(int j=0;j<8;j++) {
-            // get square coords
-            int x = 0;
-            if(this->flipBoard) {
-                x = boardOffsetX+((7-i)*squareSize);
-            } else {
-                x = boardOffsetX+(i*squareSize);
-            }
-            // drawing coordinates are from top left
-            // whereas chess coords are from bottom left
-            int y = boardOffsetY+((7-j)*squareSize);
-
+        /*
             // draw the pieces
             uint8_t piece_type = 0;
             bool piece_color = 0;
@@ -288,7 +337,7 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
         painter->setBrush(ci.color);
         painter->drawRect(x,y,squareSize,squareSize);
     }
-
+*/
 
     // draw board coordinates
     painter->setPen(this->style->coordinateColor);
@@ -312,7 +361,7 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
             painter->drawText(4+addLeft,boardOffsetY+(i*squareSize)+(squareSize/2)+4,num);
         }
     }
-
+/*
 
     // draw arrows
     for(int i=0; i<this->currentArrows.size();i++) {
@@ -326,8 +375,8 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
            this->grabbedArrow->from != this->grabbedArrow->to) {
         this->drawArrow(*this->grabbedArrow, boardOffsetX, boardOffsetY, squareSize, painter);
     }
-
     */
+
 }
 
 /*

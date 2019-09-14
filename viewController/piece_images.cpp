@@ -57,29 +57,29 @@ void PieceImages::initSvgs(QHash<std::pair<scid::pieceT,scid::colorT>, QSvgRende
     filename.append(pieceStyle);
     filename.append("/");
 
-    QString fn_ba = filename.append("ba.svg");
-    QString fn_wa = filename.append("wa.svg");
+    //QString fn_ba = QString(filename).append("ba.svg");
+    //QString fn_wa = filename.append("wa.svg");
 
-    QString fn_bp = filename.append("bp.svg");
-    QString fn_wp = filename.append("wp.svg");
+    QString fn_bp = QString(filename).append("bp.svg");
+    QString fn_wp = QString(filename).append("wp.svg");
 
-    QString fn_br = filename.append("br.svg");
-    QString fn_wr = filename.append("wr.svg");
+    QString fn_br = QString(filename).append("br.svg");
+    QString fn_wr = QString(filename).append("wr.svg");
 
-    QString fn_bn = filename.append("bn.svg");
-    QString fn_wn = filename.append("wn.svg");
+    QString fn_bn = QString(filename).append("bn.svg");
+    QString fn_wn = QString(filename).append("wn.svg");
 
-    QString fn_bb = filename.append("bb.svg");
-    QString fn_wb = filename.append("wb.svg");
+    QString fn_bb = QString(filename).append("bb.svg");
+    QString fn_wb = QString(filename).append("wb.svg");
 
-    QString fn_bq = filename.append("bq.svg");
-    QString fn_wq = filename.append("wq.svg");
+    QString fn_bq = QString(filename).append("bq.svg");
+    QString fn_wq = QString(filename).append("wq.svg");
 
-    QString fn_bk = filename.append("bk.svg");
-    QString fn_wk = filename.append("wk.svg");
+    QString fn_bk = QString(filename).append("bk.svg");
+    QString fn_wk = QString(filename).append("wk.svg");
 
-    QSvgRenderer *ren_ba = new QSvgRenderer();
-    QSvgRenderer *ren_wa = new QSvgRenderer();
+    //QSvgRenderer *ren_ba = new QSvgRenderer();
+    //QSvgRenderer *ren_wa = new QSvgRenderer();
 
     QSvgRenderer *ren_bp = new QSvgRenderer();
     QSvgRenderer *ren_wp = new QSvgRenderer();
@@ -99,29 +99,29 @@ void PieceImages::initSvgs(QHash<std::pair<scid::pieceT,scid::colorT>, QSvgRende
     QSvgRenderer *ren_bk = new QSvgRenderer();
     QSvgRenderer *ren_wk = new QSvgRenderer();
 
-    ren_ba->load(fn_ba);
-    ren_wa->load(fn_wa);
+    //ren_ba->load(fn_ba);
+    //ren_wa->load(fn_wa);
 
-    ren_ba->load(fn_bp);
-    ren_wa->load(fn_wp);
+    ren_bp->load(fn_bp);
+    ren_wp->load(fn_wp);
 
-    ren_ba->load(fn_br);
-    ren_wa->load(fn_wr);
+    ren_br->load(fn_br);
+    ren_wr->load(fn_wr);
 
-    ren_ba->load(fn_bn);
-    ren_wa->load(fn_wn);
+    ren_bn->load(fn_bn);
+    ren_wn->load(fn_wn);
 
-    ren_ba->load(fn_bb);
-    ren_wa->load(fn_wb);
+    ren_bb->load(fn_bb);
+    ren_wb->load(fn_wb);
 
-    ren_ba->load(fn_bq);
-    ren_wa->load(fn_wq);
+    ren_bq->load(fn_bq);
+    ren_wq->load(fn_wq);
 
-    ren_ba->load(fn_bk);
-    ren_wa->load(fn_wk);
+    ren_bk->load(fn_bk);
+    ren_wk->load(fn_wk);
 
-    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::ANY_PIECE, scid::BLACK), ren_ba);
-    svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::ANY_PIECE, scid::WHITE), ren_wa);
+    //svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::ANY_PIECE, scid::BLACK), ren_ba);
+    //svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::ANY_PIECE, scid::WHITE), ren_wa);
 
     svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::PAWN, scid::BLACK), ren_bp);
     svg_images->insert(std::pair<scid::pieceT, scid::colorT>(scid::PAWN, scid::WHITE), ren_wp);

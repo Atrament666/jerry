@@ -296,7 +296,7 @@ void BoardViewController::drawBoard(QPaintEvent *event, QPainter *painter) {
     this->setBoard(node->getBoard());
     this->setArrows(node->getArrows());
     this->setColoredFields(node->getColoredFields());
-
-    Chessboard::drawBoard(event, painter);
     */
+    Chessboard::drawBoard(event, painter);
+
 }

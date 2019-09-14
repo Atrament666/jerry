@@ -252,8 +252,7 @@ const pieceT
     ROOK = 3,
     BISHOP = 4,
     KNIGHT = 5,
-    PAWN = 6,
-    ANY_PIECE = 7;
+    PAWN = 6;
 
 // PIECES:
 //   Note that color(x) == ((x & 0x8) >> 3)  and  type(x) == (x & 0x7)
