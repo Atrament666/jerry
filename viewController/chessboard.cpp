@@ -23,7 +23,7 @@ Chessboard::Chessboard(QWidget *parent) :
     this->currentPos.StdStart();
     this->currentPos.AddPiece(scid::KNIGHT, scid::E4);
 
-    this->moveSrc = new QPoint(-1,-1);
+    this->moveSrc = scid::NULL_SQUARE;
     this->drawGrabbedPiece = false;
     this->grabbedPiece = new GrabbedPiece{scid::EMPTY,scid::WHITE,-1,-1};
     this->flipBoard = false;
@@ -79,7 +79,7 @@ void Chessboard::setColoredFields(QVector<chess::ColoredField> fields) {
 void Chessboard::setGrabbedArrowFrom(int x, int y) {
     this->grabbedArrow->from.setX(x);
     this->grabbedArrow->from.setY(y);
-}*/
+} */
 
 /*
 void Chessboard::setGrabbedArrowTo(int x, int y) {
@@ -141,7 +141,7 @@ QPoint Chessboard::scidSqureToPos(int boardOffsetX, int boardOffsetY,
     if(fyle == scid::G_FYLE) { i = 6; };
     if(fyle == scid::H_FYLE) { i = 7; };
 
-    int x = boardOffsetX+((7-i)*squareSize);
+    int x = boardOffsetX+((i)*squareSize);
 
     int j = -1;
     if(rank == scid::RANK_1) { j = 0; };
@@ -259,14 +259,14 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
     }*/
 
 
-    std::cout << "painting pieces" << std::endl;
+    //std::cout << "painting pieces" << std::endl;
     const scid::pieceT* board = this->currentPos.GetBoard();
-    std::cout << "square a1: " << scid::A1 << std::endl;
-    qDebug() << scid::A1;
+    //std::cout << "square a1: " << scid::A1 << std::endl;
+    //qDebug() << scid::A1;
     //this->flipBoard = true;
     for(scid::squareT square_i = scid::A1; square_i <= scid::H8; square_i++) {
 
-        std::cout << "square i: " << square_i << std::endl;
+        //std::cout << "square i: " << square_i << std::endl;
         QPoint xy = this->scidSqureToPos(boardOffsetX, boardOffsetY, squareSize, square_i);
         scid::pieceT piece_i = board[square_i];
         scid::pieceT piece_type_i = scid::piece_Type(piece_i);
@@ -274,9 +274,14 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
 
         if(piece_type_i >= scid::KING && piece_type_i <= scid::PAWN &&
                 (piece_color_i == scid::WHITE || piece_color_i == scid::BLACK)) {
-            std::cout << "square i piece: " << +(piece_type_i) <<  std::endl;
-            QImage *piece_image = this->pieceImages->getPieceImage(piece_type_i, piece_color_i, squareSize, this->dpr);
-            painter->drawImage(xy.x(),xy.y(),*piece_image);
+
+            // don't draw piece that is currently picked up
+            if(!(this->drawGrabbedPiece && square_i == this->moveSrc)) {
+
+                //std::cout << "square i piece: " << +(piece_type_i) <<  std::endl;
+                QImage *piece_image = this->pieceImages->getPieceImage(piece_type_i, piece_color_i, squareSize, this->dpr);
+                painter->drawImage(xy.x(),xy.y(),*piece_image);
+            }
         }
     }
 
@@ -308,6 +313,7 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
             }
         }
     }
+*/
 
     // draw grabbed piece, if user is currently grabbing
     if(this->drawGrabbedPiece) {
@@ -321,7 +327,7 @@ void Chessboard::drawBoard(QPaintEvent *, QPainter *painter) {
                                                              this->grabbedPiece->color, squareSize, this->dpr, this->style->pieceType));
     }
 
-
+/*
     // draw colored fields
     for(int i=0; i<this->currentColoredFields.size();i++) {
         chess::ColoredField ci = this->currentColoredFields.at(i);

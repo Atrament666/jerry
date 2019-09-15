@@ -40,7 +40,7 @@ private:
 protected:
 
     //chess::Move lastMove;
-    QPoint* moveSrc;
+    scid::squareT moveSrc;
     bool drawGrabbedPiece;
     bool drawGrabbedArrow;
     struct GrabbedPiece *grabbedPiece;

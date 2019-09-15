@@ -74,27 +74,27 @@ void BoardViewController::flipBoard() {
 }
 
 void BoardViewController::resetMove() {
-    this->moveSrc->setX(-1);
-    this->moveSrc->setY(-1);
-    //this->grabbedPiece->piece_type = chess::EMPTY;
+    this->moveSrc = scid::NULL_SQUARE;
+    this->grabbedPiece->piece_type = scid::EMPTY;
     this->drawGrabbedPiece = false;
 }
 
 void BoardViewController::touchPiece(int x, int y, int mouse_x, int mouse_y) {
-    this->moveSrc->setX(x);
-    this->moveSrc->setY(y);
-    int idx = this->xyToBoardIdx(x, y);
-    //this->grabbedPiece->piece_type = this->gameModel->getGame()->getCurrentNode()->getBoard().piece_type(idx);
-    //this->grabbedPiece->color = this->gameModel->getGame()->getCurrentNode()->getBoard().piece_color(idx);
+    this->moveSrc = this->xyToBoardIdx(x, y);
+    scid::pieceT piece = this->currentPos.GetBoard()[this->moveSrc];
+    scid::pieceT piece_type = scid::piece_Type(piece);
+    scid::pieceT piece_color = scid::piece_Color(piece);
+    this->grabbedPiece->piece_type = piece_type;
+    this->grabbedPiece->color = piece_color;
     this->grabbedPiece->x = mouse_x;
     this->grabbedPiece->y = mouse_y;
     this->drawGrabbedPiece = true;
 }
 
-QPoint* BoardViewController::getBoardPosition(int x, int y) {
-    QPoint *q = new QPoint();
-    q->setX(-1);
-    q->setY(-1);
+QPoint BoardViewController::getBoardPosition(int x, int y) {
+    QPoint q(-1,-1);
+    q.setX(-1);
+    q.setY(-1);
     int boardSize = 0;
     int squareSize = 0;
     Chessboard::calculateBoardSize(&boardSize, &squareSize);
@@ -112,30 +112,35 @@ QPoint* BoardViewController::getBoardPosition(int x, int y) {
             //q->setX(7-x);
             //q->setY(7-x);
         //} else {
-            q->setX(x);
-            q->setY(y);
+            q.setX(x);
+            q.setY(y);
         //}
     }
     return q;
 }
 
-uint8_t BoardViewController::xyToBoardIdx(int x, int y) {
-    uint8_t board_idx = ((y+2)*10)+x+1;
+scid::squareT BoardViewController::xyToBoardIdx(int x, int y) {
+    // scid.A1 =
+
+    scid::squareT board_idx = ((y)*8)+x;
+    //board_idx = scid::E1;
+    std::cout << "x, y, squareT:" << +(x) << " " << +(y) << " " << +(board_idx) << std::endl;
+
     if(this->gameModel->flipBoard) {
-        board_idx = 119 - board_idx;
+        board_idx = 63 - board_idx;
     }
     return board_idx;
 }
 
-void BoardViewController::handleColoringOnKeyPress(QPoint *pos) {
+void BoardViewController::handleColoringOnKeyPress(QPoint &pos) {
         // user clicked and is going to draw arrow or mark a field
-        if(pos->x() != -1 && pos->y() != -1 && !this->colorClick) {
+        if(pos.x() != -1 && pos.y() != -1 && !this->colorClick) {
             if(this->gameModel->flipBoard) {
-                pos->setX(7-pos->x());
-                pos->setY(7-pos->y());
+                pos.setX(7-pos.x());
+                pos.setY(7-pos.y());
             }
-            this->colorClickSrc->setX(pos->x());
-            this->colorClickSrc->setY(pos->y());
+            this->colorClickSrc->setX(pos.x());
+            this->colorClickSrc->setY(pos.y());
             this->colorClick = true;
 
             //this->setGrabbedArrowFrom(pos->x(), pos->y());
@@ -152,17 +157,18 @@ void BoardViewController::applyMove(chess::Move *m) {
 }*/
 
 void BoardViewController::mousePressEvent(QMouseEvent *me) {
-    /*
-    QPoint *pos = this->getBoardPosition(me->x(), me->y());
+
+    QPoint pos = this->getBoardPosition(me->x(), me->y());
     if(me->button() == Qt::RightButton)
     {
         this->handleColoringOnKeyPress(pos);
-    } else if(me->button() == Qt::LeftButton) {
-        chess::Board b = this->gameModel->getGame()->getCurrentNode()->getBoard();
-        uint8_t to_idx = this->xyToBoardIdx(pos->x(), pos->y());
-        if(pos->x() != -1 && pos->y() != -1) {
-            if(this->grabbedPiece->piece_type != -1) {
-                uint8_t from_idx = this->xyToBoardIdx(this->moveSrc->x(), this->moveSrc->y());
+    } else if(me->button() == Qt::LeftButton) {        
+        //chess::Board b = this->gameModel->getGame()->getCurrentNode()->getBoard();
+        uint8_t to_idx = this->xyToBoardIdx(pos.x(), pos.y());
+        if(pos.x() != -1 && pos.y() != -1) {
+            if(this->grabbedPiece->piece_type != scid::EMPTY) {
+                //uint8_t from_idx = this->xyToBoardIdx(this->moveSrc->x(), this->moveSrc->y());
+                /*
                 chess::Move *m = new chess::Move(from_idx,to_idx);
                 if(b.is_legal_and_promotes(*m)) {
                     DialogPromotion *d = new DialogPromotion(b.turn,this->parentWidget());
@@ -179,42 +185,42 @@ void BoardViewController::mousePressEvent(QMouseEvent *me) {
                     if(b.piece_type(to_idx) != chess::EMPTY) {
                         this->touchPiece(pos->x(),pos->y(),me->x(),me->y());
                     }
-                }
+                }*/
             } else {
-                if(b.piece_type(to_idx) != chess::EMPTY) {
-                    this->touchPiece(pos->x(),pos->y(),me->x(),me->y());
-                }
+                //if(b.piece_type(to_idx) != chess::EMPTY) {
+                    this->touchPiece(pos.x(),pos.y(),me->x(),me->y());
+                //}
             }
         }
     }
-    */
+
 }
 
 void BoardViewController::mouseMoveEvent(QMouseEvent *m) {
 
-    /*
+
     Qt::MouseButton button = m->button();
     if(button == Qt::NoButton &&
-            //this->grabbedPiece->piece_type != chess::EMPTY
-            this->drawGrabbedPiece && this->grabbedPiece->piece_type != chess::EMPTY && !this->colorClick) {
+            //this->grabbedPiece->piece_type != scid::EMPTY
+            this->drawGrabbedPiece && this->grabbedPiece->piece_type != scid::EMPTY && !this->colorClick) {
         this->grabbedPiece->x = m->x();
         this->grabbedPiece->y = m->y();
-        //this->drawGrabbedPiece = true;
+        this->drawGrabbedPiece = true;
         this->update();
     }
     if(button == Qt::NoButton && this->drawGrabbedArrow) {
-        QPoint *xy = this->getBoardPosition(m->x(),m->y());
+        QPoint xy = this->getBoardPosition(m->x(),m->y());
         if(this->gameModel->flipBoard) {
-            xy->setX(7-xy->x());
-            xy->setY(7-xy->y());
+            xy.setX(7-xy.x());
+            xy.setY(7-xy.y());
         }
-        this->setGrabbedArrowTo(xy->x(), xy->y());
+        //this->setGrabbedArrowTo(xy->x(), xy->y());
         this->update();
     }
-*/
+
 }
 
-void BoardViewController::handleColoringonKeyRelease(QPoint *pos) {
+void BoardViewController::handleColoringonKeyRelease(QPoint &pos) {
     /*
         // user clicked and is going to draw arrow
         if(pos->x() != -1 && pos->y() != -1 && this->colorClick) {
@@ -242,17 +248,20 @@ void BoardViewController::handleColoringonKeyRelease(QPoint *pos) {
 }
 
 void BoardViewController::mouseReleaseEvent(QMouseEvent *m) {
-    /*
+
     this->drawGrabbedPiece = false;
-    QPoint *pos = this->getBoardPosition(m->x(), m->y());
+    QPoint pos = this->getBoardPosition(m->x(), m->y());
     if(m->button() == Qt::RightButton)
     {
         this->handleColoringonKeyRelease(pos);
 
     } else if(m->button() == Qt::LeftButton){
-        chess::Board b = this->gameModel->getGame()->getCurrentNode()->getBoard();
-        if(pos->x() != -1 && pos->y() != -1 && this->grabbedPiece->piece_type != chess::EMPTY) {
-            if(!(pos->x() == this->moveSrc->x() && pos->y() == this->moveSrc->y())) {
+
+        //chess::Board b = this->gameModel->getGame()->getCurrentNode()->getBoard();
+        if(pos.x() != -1 && pos.y() != -1 && this->grabbedPiece->piece_type != scid::EMPTY) {
+            this->resetMove();
+            //if(!(pos.x() == this->moveSrc->x() && pos->y() == this->moveSrc->y())) {
+                /*
                 uint8_t from_idx = this->xyToBoardIdx(this->moveSrc->x(), this->moveSrc->y());
                 uint8_t to_idx = this->xyToBoardIdx(pos->x(), pos->y());
                 chess::Move *m = new chess::Move(from_idx,to_idx);
@@ -267,13 +276,13 @@ void BoardViewController::mouseReleaseEvent(QMouseEvent *m) {
                     this->applyMove(m);
                 } else {
                     this->resetMove();
-                }
-            }
+                }*/
+            //}
         }
     }
     this->colorClick = false;
     this->update();
-    */
+
 }
 
 
