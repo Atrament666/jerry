@@ -61,8 +61,8 @@ public:
     QString lastSaveDir;
     GameModel(QObject *parent = 0);
     ~GameModel();
-    //chess::Game* getGame();
-    scid::Game g;
+    scid::Game* getGame();
+    scid::Game *game;
     //void setGame(chess::Game *g);
     void triggerStateChange();
     int getMode();

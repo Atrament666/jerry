@@ -21,6 +21,7 @@
 #ifndef DIALOG_PROMOTION_H
 #define DIALOG_PROMOTION_H
 #include "viewController/piece_images.h"
+#include "scid/common.h"
 #include <QEvent>
 #include <QDialog>
 
@@ -29,14 +30,14 @@ class DialogPromotion : public QDialog
 {
     Q_OBJECT
 public:
-    explicit DialogPromotion(bool color, QWidget *parent = 0);
-    int promotesTo;
+    explicit DialogPromotion(scid::colorT color, QWidget *parent = 0);
+    QString promotesTo;
 
 private:
     int border;
     int pieceSize;
     qreal dpr;
-    bool color;
+    scid::colorT color;
     int selectedIndex;
     PieceImages *img;
     void resizeTo(float ratio);
@@ -45,8 +46,9 @@ private:
     void mouseReleaseEvent(QMouseEvent *m);
     void keyPressEvent(QKeyEvent *e);
 
-    uint8_t piece_by_idx(int idx);
-    uint8_t piecetype_by_idx(int idx);
+    //uint8_t piece_by_idx(int idx);
+    QString piecetype_by_idx(int idx);
+    scid::pieceT scid_piecetype_by_idx(int idx);
 
 };
 

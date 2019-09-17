@@ -57,7 +57,9 @@ private:
     //void drawArrow(chess::Arrow *, int boardOffsetX, int boardOffsetY, int squareSize, QPainter *);
     void handleColoringOnKeyPress(QPoint &pos);
     void handleColoringonKeyRelease(QPoint &pos);
-    //void applyMove(chess::Move *m);
+    void applyMove(scid::simpleMoveT move);
+    QString FromToToUci(scid::squareT from, scid::squareT to, QString promo = "");
+
 
 protected:
      void paintEvent(QPaintEvent *e);

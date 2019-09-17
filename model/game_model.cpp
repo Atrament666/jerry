@@ -40,7 +40,8 @@ GameModel::GameModel(QObject *parent) :
     this->lastOpenDir = "";
     this->lastSaveDir = "";
     this->currentPgnFilename = "";
-    //this->game = new chess::Game();
+    this->game = new scid::Game();
+    this->game->Init();
     this->colorStyle = new ColorStyle(ResourceFinder::getPath());
     this->fontStyle = new FontStyle();
     this->mode = MODE_ENTER_MOVES;
@@ -145,11 +146,9 @@ void GameModel::setActiveEngine(int activeEngineIdx) {
     this->activeEngineIdx = activeEngineIdx;
 }
 
-/*
-chess::Game* GameModel::getGame() {
+scid::Game* GameModel::getGame() {
     return this->game;
 }
-*/
 
 /*
 void GameModel::setGame(chess::Game *g) {

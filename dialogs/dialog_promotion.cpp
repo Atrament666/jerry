@@ -30,11 +30,11 @@
 #include "assert.h"
 #include "various/resource_finder.h"
 
-DialogPromotion::DialogPromotion(bool color, QWidget *parent) :
+DialogPromotion::DialogPromotion(scid::colorT color, QWidget *parent) :
     QDialog(parent)
 
 {
-    /*
+
     this->setWindowTitle(this->tr("Promotion"));
     this->resizeTo(0.15);
 
@@ -48,11 +48,11 @@ DialogPromotion::DialogPromotion(bool color, QWidget *parent) :
         this->pieceSize = w;
     }
     this->color = color;
-    this->promotesTo = chess::QUEEN;
+    this->promotesTo = "Q";
     this->selectedIndex = 0;
 
     this->img = new PieceImages(ResourceFinder::getPath());
-    */
+
 }
 
 void DialogPromotion::resizeTo(float ratio) {
@@ -97,7 +97,7 @@ void DialogPromotion::paintEvent(QPaintEvent *) {
             painter->drawRect(this->border+i*s,this->border,s,s);
         }
         painter->drawImage(this->border+i*s, this->border,
-                           *this->img->getPieceImage(this->piecetype_by_idx(i),this->color,s,this->dpr));
+                           *this->img->getPieceImage(this->scid_piecetype_by_idx(i),this->color,s,this->dpr));
     }
     painter->end();
     delete painter;
@@ -134,24 +134,39 @@ void DialogPromotion::keyPressEvent(QKeyEvent *e) {
     }
 }
 
-uint8_t DialogPromotion::piecetype_by_idx(int idx) {
-    /*
+QString DialogPromotion::piecetype_by_idx(int idx) {
+
     assert(idx >= 0 && idx <= 3);
-    uint8_t piece;
+    QString piece;
     switch(idx) {
         case 0:
-            piece = chess::QUEEN;
+            piece = "Q";
             break;
         case 1:
-            piece = chess::ROOK;
+            piece = "R";
             break;
         case 2:
-            piece = chess::BISHOP;
+            piece = "B";
             break;
         case 3:
-            piece = chess::KNIGHT;
+            piece = "N";
             break;
     }
     return piece;
-    */
+}
+
+scid::pieceT DialogPromotion::scid_piecetype_by_idx(int idx) {
+
+    assert(idx >= 0 && idx <= 3);
+    switch(idx) {
+        case 0:
+            return scid::QUEEN;
+        case 1:
+            return scid::ROOK;
+        case 2:
+            return scid::BISHOP;
+        case 3:
+            return scid::KNIGHT;
+    }
+    return scid::QUEEN;
 }
