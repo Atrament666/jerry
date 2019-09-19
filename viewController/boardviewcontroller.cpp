@@ -110,9 +110,9 @@ QPoint BoardViewController::getBoardPosition(int x, int y) {
         y = y - (this->borderWidth);
         x = x / squareSize;
         y = 7 - (y / squareSize);
-        //if(this->flippedBoard) {
-            //q->setX(7-x);
-            //q->setY(7-x);
+        //if(this->gameModel->flipBoard) {
+        //    q.setX(7-x);
+        //    q.setY(7-x);
         //} else {
             q.setX(x);
             q.setY(y);
@@ -129,7 +129,7 @@ scid::squareT BoardViewController::xyToBoardIdx(int x, int y) {
     std::cout << "x, y, squareT:" << +(x) << " " << +(y) << " " << +(board_idx) << std::endl;
 
     if(this->gameModel->flipBoard) {
-        board_idx = 63 - board_idx;
+        board_idx = ((7-y)*8)+x;
     }
     return board_idx;
 }
@@ -157,6 +157,57 @@ void BoardViewController::applyMove(scid::simpleMoveT move) {
     this->gameModel->triggerStateChange();
 }
 
+scid::errorT BoardViewController::tryMove(scid::squareT from, scid::squareT to, scid::simpleMoveT *move) {
+
+    if(this->currentPos.IsPromoMove(from, to)) {
+        // first create all possible promo moves, incl. all underpromotions
+        // if one of them is legal, we give the user a selection choice
+        // this move is then executed.
+        QString uciPromoRook = this->FromToToUci(from, to, "R");
+        QString uciPromoKnight = this->FromToToUci(from, to, "N");
+        QString uciPromoBishop = this->FromToToUci(from, to, "B");
+        QString uciPromoQueen = this->FromToToUci(from, to, "Q");
+        const char *uci_pr_as_c_str = uciPromoRook.toStdString().c_str();
+        const char *uci_pn_as_c_str = uciPromoKnight.toStdString().c_str();
+        const char *uci_pb_as_c_str = uciPromoBishop.toStdString().c_str();
+        const char *uci_pq_as_c_str = uciPromoQueen.toStdString().c_str();
+        scid::simpleMoveT moveR;
+        scid::errorT errR = this->currentPos.ReadCoordMove(&moveR, uci_pr_as_c_str, false);
+        scid::simpleMoveT moveN;
+        scid::errorT errN = this->currentPos.ReadCoordMove(&moveN, uci_pn_as_c_str, false);
+        scid::simpleMoveT moveB;
+        scid::errorT errB = this->currentPos.ReadCoordMove(&moveB, uci_pb_as_c_str, false);
+        scid::simpleMoveT moveQ;
+        scid::errorT errQ = this->currentPos.ReadCoordMove(&moveQ, uci_pq_as_c_str, false);
+        if(errR == scid::OK || errN == scid::OK || errB == scid::OK || errQ == scid::OK) {
+            // one of these is ok, so give user a choice. Chance remains that
+            // he selects an impossible move
+            DialogPromotion d(this->currentPos.GetToMove(),this->parentWidget());
+            d.exec();
+            QString uci = this->FromToToUci(from, to, d.promotesTo);
+            const char *uci_as_c_str = uci.toStdString().c_str();
+            scid::errorT err = this->currentPos.ReadCoordMove(move, uci_as_c_str, false);
+            return err;
+            //if(err == scid::OK) {
+            //    this->applyMove(move);
+            //    this->resetMove();
+            //}
+        } else {
+            return scid::ERROR_General;
+        }
+    } else {
+        // definitely not promoting, so check if legal move
+        QString uci = this->FromToToUci(from, to);
+        const char *uci_as_c_str = uci.toStdString().c_str();
+        //scid::simpleMoveT move;
+        scid::errorT err = this->currentPos.ReadCoordMove(move, uci_as_c_str, false);
+        return err;
+        //if(err == scid::OK) {
+        //    this->applyMove(move);
+        //    this->resetMove();
+        //}
+    }
+}
 
 void BoardViewController::mousePressEvent(QMouseEvent *me) {
 
@@ -170,42 +221,24 @@ void BoardViewController::mousePressEvent(QMouseEvent *me) {
         //chess::Board b = this->gameModel->getGame()->getCurrentNode()->getBoard();
         scid::squareT to_square = this->xyToBoardIdx(pos.x(), pos.y());
         if(pos.x() != -1 && pos.y() != -1) {
-            /*
             qDebug() << "mousePressEvent, grabbed piece type: " << +(this->grabbedPiece->piece_type);
             if(this->grabbedPiece->piece_type != scid::EMPTY) {
-                // first check if this is a potential promotion move
-                if(this->currentPos.IsPromoMove(this->moveSrc, to_square)) {
-
+                scid::simpleMoveT move;
+                scid::errorT err = this->tryMove(this->moveSrc, to_square, &move);
+                if(err == scid::OK) {
+                    this->applyMove(move);
+                    this->resetMove();
                 } else {
-
-                    // definitely not promoting, so chech if legal move
-                    QString uci = "";
-                    uci.append(scid::square_Fyle(this->moveSrc));
-                    uci.append(scid::square_Rank(this->moveSrc));
-                    uci.append(scid::square_Fyle(to_square));
-                    uci.append(scid::square_Rank(to_square));
-                    const char *uci_as_c_str = uci.toStdString().c_str();
-                    scid::simpleMoveT move;
-                    scid::errorT err = this->currentPos.ReadCoordMove(&move, uci_as_c_str, false);
-                    if(err == scid::OK) {
-                        this->applyMove(move);
-                        this->resetMove();
-                    } else {
-                        this->resetMove();
-                        scid::pieceT piece = this->currentPos.GetBoard()[this->moveSrc];
-                        scid::pieceT piece_type = scid::piece_Type(piece);
-                        if(piece_type != scid::EMPTY) {
-                            this->touchPiece(pos.x(),pos.y(),me->x(),me->y());
-                        }
-                    }
-
+                    this->resetMove();
+                    if(this->currentPos.GetBoard()[to_square] != scid::EMPTY) {
+                        this->touchPiece(pos.x(),pos.y(),me->x(),me->y());
+                   }
                 }
             } else {
-            */
-                this->resetMove();
+                //this->resetMove();
                 if(this->currentPos.GetBoard()[to_square] != scid::EMPTY) {
                     this->touchPiece(pos.x(),pos.y(),me->x(),me->y());
-              //  }
+               }
             }
         }
     }
@@ -293,56 +326,14 @@ void BoardViewController::mouseReleaseEvent(QMouseEvent *m) {
             //this->resetMove();
             scid::squareT release_square = this->xyToBoardIdx(pos.x(), pos.y());
             if(!(release_square == this->moveSrc)) {
-                // first check if this is a potential promotion move
-                if(this->currentPos.IsPromoMove(this->moveSrc, release_square)) {
-                    // first create all possible promo moves, incl. all underpromotions
-                    // if one of them is legal, we give the user a selection choice
-                    // this move is then executed.
-                    QString uciPromoRook = this->FromToToUci(this->moveSrc, release_square, "R");
-                    QString uciPromoKnight = this->FromToToUci(this->moveSrc, release_square, "N");
-                    QString uciPromoBishop = this->FromToToUci(this->moveSrc, release_square, "B");
-                    QString uciPromoQueen = this->FromToToUci(this->moveSrc, release_square, "Q");
-                    const char *uci_pr_as_c_str = uciPromoRook.toStdString().c_str();
-                    const char *uci_pn_as_c_str = uciPromoKnight.toStdString().c_str();
-                    const char *uci_pb_as_c_str = uciPromoBishop.toStdString().c_str();
-                    const char *uci_pq_as_c_str = uciPromoQueen.toStdString().c_str();
-                    scid::simpleMoveT moveR;
-                    scid::errorT errR = this->currentPos.ReadCoordMove(&moveR, uci_pr_as_c_str, false);
-                    scid::simpleMoveT moveN;
-                    scid::errorT errN = this->currentPos.ReadCoordMove(&moveN, uci_pn_as_c_str, false);
-                    scid::simpleMoveT moveB;
-                    scid::errorT errB = this->currentPos.ReadCoordMove(&moveB, uci_pb_as_c_str, false);
-                    scid::simpleMoveT moveQ;
-                    scid::errorT errQ = this->currentPos.ReadCoordMove(&moveQ, uci_pq_as_c_str, false);
-                    if(errR == scid::OK || errN == scid::OK || errB == scid::OK || errQ == scid::OK) {
-                        // one of these is ok, so give user a choice. Chance remains that
-                        // he selects an impossible move
-                        DialogPromotion d(this->currentPos.GetToMove(),this->parentWidget());
-                        d.exec();
-                        QString uci = this->FromToToUci(this->moveSrc, release_square, d.promotesTo);
-                        const char *uci_as_c_str = uci.toStdString().c_str();
-                        scid::simpleMoveT move;
-                        scid::errorT err = this->currentPos.ReadCoordMove(&move, uci_as_c_str, false);
-                        if(err == scid::OK) {
-                            this->applyMove(move);
-                            this->resetMove();
-                        }
-                    }
-
+                scid::simpleMoveT move;
+                scid::errorT err = this->tryMove(this->moveSrc, release_square, &move);
+                if(err == scid::OK) {
+                    this->applyMove(move);
                 } else {
-                    // definitely not promoting, so check if legal move
-                    QString uci = this->FromToToUci(this->moveSrc, release_square);
-                    const char *uci_as_c_str = uci.toStdString().c_str();
-                    scid::simpleMoveT move;
-                    scid::errorT err = this->currentPos.ReadCoordMove(&move, uci_as_c_str, false);
-                    if(err == scid::OK) {
-                        this->applyMove(move);
-                        this->resetMove();
-                    }
+                    this->resetMove();
                 }
             }
-
-            //}
         }
     }
     this->colorClick = false;
