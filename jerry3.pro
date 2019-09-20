@@ -15,7 +15,7 @@ TARGET = Jerry
 CONFIG   -= console
 CONFIG   += app_bundle
 CONFIG   += c++14
-CONFIG += object_parallel_to_source
+#CONFIG += object_parallel_to_source
 
 
 

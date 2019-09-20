@@ -19,7 +19,7 @@ void ScidTest::run() {
     move_e2e4.to = scid::E4;
     char* snp = (char *)"e4";  // extremely fugly
     g.AddMove(&move_e2e4, snp);
-    char san[CHAR_MAX];
+    char san[30];
     g.GetSAN(san);
     std::cout << "game.getSan()" << san << std::endl;
     auto ret = g.WriteToPGN();
