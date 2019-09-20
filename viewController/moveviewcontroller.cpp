@@ -33,17 +33,16 @@
 MoveViewController::MoveViewController(GameModel *gameModel, QWidget *parent) :
     QTextBrowser(parent)
 {
-    /*
     this->pos_rightclick = new QPoint(-1,-1);
     this->gameModel = gameModel;
     this->document = new QTextDocument();
     this->viewport()->setCursor(Qt::ArrowCursor);
-    this->guiPrinter = new chess::GuiPrinter();
+    //this->guiPrinter = new chess::GuiPrinter();
     this->setContextMenuPolicy(Qt::CustomContextMenu);
 
     connect(this, &MoveViewController::anchorClicked, this, &MoveViewController::onAnchorClicked);
     connect(this, &MoveViewController::customContextMenuRequested, this, &MoveViewController::showContextMenu);
-    */
+
 }
 
 void MoveViewController::showContextMenu(const QPoint &pos) {
@@ -410,6 +409,18 @@ void MoveViewController::keyPressEvent(QKeyEvent *e) {
 
 void MoveViewController::onStateChange() {
 
+    scid::Game *g = this->gameModel->getGame();
+    g->SetPgnFormat(scid::PGN_FORMAT_Plain);
+    g->AddPgnStyle(PGN_STYLE_SHORT_HEADER);
+    auto ret = g->WriteToPGN();
+    //std::cout << "game.WriteToPGN(), first :" << ret.first << std::endl;
+    this->document->clear();
+    this->document->setHtml(QString::fromStdString(ret.first));
+    this->setDocument(this->document);
+    qDebug() << ret.first;
+    this->setFocus();
+
+    //this->update();
     /*
     if(this->gameModel->getGame()->isTreeChanged()) {
         this->document->clear();

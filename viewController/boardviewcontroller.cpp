@@ -145,8 +145,8 @@ void BoardViewController::handleColoringOnKeyPress(QPoint &pos) {
             this->colorClickSrc->setY(pos.y());
             this->colorClick = true;
 
-            //this->setGrabbedArrowFrom(pos->x(), pos->y());
-            this->drawGrabbedArrow = true;
+            //this->setGrabbedArrowFrom(pos.x(), pos.y());
+            //this->drawGrabbedArrow = true;
         }
 }
 
@@ -263,14 +263,14 @@ void BoardViewController::mouseMoveEvent(QMouseEvent *m) {
             xy.setX(7-xy.x());
             xy.setY(7-xy.y());
         }
-        //this->setGrabbedArrowTo(xy->x(), xy->y());
+        //this->setGrabbedArrowTo(xy.x(), xy.y());
         this->update();
     }
 
 }
 
 void BoardViewController::handleColoringonKeyRelease(QPoint &pos) {
-    /*
+/*
         // user clicked and is going to draw arrow
         if(pos->x() != -1 && pos->y() != -1 && this->colorClick) {
             if(this->gameModel->flipBoard) {
@@ -293,7 +293,7 @@ void BoardViewController::handleColoringonKeyRelease(QPoint &pos) {
             }
         }
         this->drawGrabbedArrow = false;
-        */
+*/
 }
 
 QString BoardViewController::FromToToUci(scid::squareT from, scid::squareT to, QString promo) {
