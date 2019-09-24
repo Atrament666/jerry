@@ -2346,6 +2346,9 @@ Game::WriteMoveList (TextBuffer *tb, uint plyCount,
         if (IsColorFormat()) {
             tb->PrintString ("</m>");
         }
+        if (IsQTextBrowserFormat()) {
+            tb->PrintString ("</a>");
+        }
         if (IsQTextBrowserFormat() && VarDepth == 0) {
             tb->PrintString ("</b>");
         }
