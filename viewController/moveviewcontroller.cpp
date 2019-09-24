@@ -409,14 +409,26 @@ void MoveViewController::keyPressEvent(QKeyEvent *e) {
 
 void MoveViewController::onStateChange() {
 
+    QString format = "a:link { color: #000000; text-decoration: none}";
+    if(!this->gameModel->fontStyle->moveWindowFontSize.isEmpty()) {
+        format.append(QString(" * { font-size: ").append(this->gameModel->fontStyle->moveWindowFontSize).append("pt; }"));
+    }
+    this->document->setDefaultStyleSheet(format);
+
     scid::Game *g = this->gameModel->getGame();
-    g->SetPgnFormat(scid::PGN_FORMAT_Plain);
-    g->AddPgnStyle(PGN_STYLE_SHORT_HEADER);
+    //g->SetPgnFormat(scid::PGN_FORMAT_Color);
+    g->SetPgnFormat(scid::PGN_FORMAT_QTextBrowser);
+    qDebug() << +(g->IsQTextBrowserFormat());
+    //g->AddPgnStyle(PGN_STYLE_SHORT_HEADER);
+    g->AddPgnStyle(PGN_STYLE_VARS);
+    g->AddPgnStyle(PGN_STYLE_INDENT_VARS);
     auto ret = g->WriteToPGN();
     //std::cout << "game.WriteToPGN(), first :" << ret.first << std::endl;
     this->document->clear();
     this->document->setHtml(QString::fromStdString(ret.first));
     this->setDocument(this->document);
+    qDebug() << "back to html:";
+    qDebug() << this->document->toHtml();
     qDebug() << ret.first;
     this->setFocus();
 

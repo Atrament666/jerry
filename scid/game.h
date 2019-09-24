@@ -198,7 +198,8 @@ enum gameFormatT {
     PGN_FORMAT_Plain = 0,   // Plain regular PGN output
     PGN_FORMAT_HTML = 1,    // HTML format
     PGN_FORMAT_LaTeX = 2,   // LaTeX (with chess12 package) format
-    PGN_FORMAT_Color = 3    // PGN, with color tags <red> etc
+    PGN_FORMAT_Color = 3,    // PGN, with color tags <red> etc
+    PGN_FORMAT_QTextBrowser = 4 // html suitable for QTextBrowser Widget
 };
 
 #define PGN_STYLE_TAGS             1
@@ -518,6 +519,7 @@ public:
     bool      IsHtmlFormat  () { return (PgnFormat == PGN_FORMAT_HTML); }
     bool      IsLatexFormat () { return (PgnFormat == PGN_FORMAT_LaTeX); }
     bool      IsColorFormat () { return (PgnFormat == PGN_FORMAT_Color); }
+    bool      IsQTextBrowserFormat () { return (PgnFormat == PGN_FORMAT_QTextBrowser); }
 
     void      SetHtmlStyle (uint style) { HtmlStyle = style; }
     uint      GetHtmlStyle () { return HtmlStyle; }

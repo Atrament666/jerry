@@ -42,6 +42,49 @@ GameModel::GameModel(QObject *parent) :
     this->currentPgnFilename = "";
     this->game = new scid::Game();
     this->game->Init();
+
+    const char* e2e4 = "e2e4";
+    const char* e7e5 = "e7e5";
+    const char* g1f3 = "g1f3";
+    const char* b8c6 = "b8c6";
+    const char* e7e6 = "e7e6";
+
+    scid::simpleMoveT sc_e2e4;
+    scid::simpleMoveT sc_e7e5;
+    scid::simpleMoveT sc_g1f3;
+    scid::simpleMoveT sc_b8c6;
+    scid::simpleMoveT sc_e7e6;
+
+    const char* com = "horrible move. just horrible.";
+    this->game->GetCurrentPos()->ReadCoordMove(&sc_e2e4, e2e4, false);
+    this->game->AddMove(&sc_e2e4,nullptr);
+    this->game->SetMoveComment(com);
+
+    this->game->GetCurrentPos()->ReadCoordMove(&sc_e7e5, e7e5, false);
+    this->game->AddMove(&sc_e7e5,nullptr);
+
+    this->game->GetCurrentPos()->ReadCoordMove(&sc_g1f3, g1f3, false);
+    this->game->AddMove(&sc_g1f3,nullptr);
+    this->game->AddNag(scid::NAG_Unclear);
+    this->game->SetMoveComment(com);
+
+    this->game->GetCurrentPos()->ReadCoordMove(&sc_b8c6, b8c6, false);
+    this->game->AddMove(&sc_b8c6,nullptr);
+    this->game->AddNag(scid::NAG_Unclear);
+
+    this->game->MoveToLocationInPGN(2);
+
+    scid::errorT err = this->game->GetCurrentPos()->ReadCoordMove(&sc_e7e6, e7e6, false);
+    qDebug() << "err code" << err;
+    qDebug() << "correct: " << scid::OK;
+    //
+    this->game->AddVariation();
+    this->game->AddMove(&sc_e7e6,nullptr);
+    this->game->AddNag(scid::NAG_Unclear);
+    this->game->SetMoveComment(com);
+
+
+
     this->colorStyle = new ColorStyle(ResourceFinder::getPath());
     this->fontStyle = new FontStyle();
     this->mode = MODE_ENTER_MOVES;

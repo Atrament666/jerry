@@ -25,6 +25,7 @@
 #include "stored.h"
 #include "dstring.h"
 #include <string.h>
+#include <QDebug>
 
 namespace scid {
 
@@ -627,6 +628,8 @@ Game::PgnFormatFromString (const char * str, gameFormatT * fmt)
         *fmt = PGN_FORMAT_LaTeX;
     } else if (strIsCasePrefix (str, "Color")) {
         *fmt = PGN_FORMAT_Color;
+    } else if (strIsCasePrefix (str, "QTextBrowser")) {
+        *fmt = PGN_FORMAT_QTextBrowser;
     } else {
         return false;
     }
@@ -2171,6 +2174,7 @@ Game::WriteMoveList (TextBuffer *tb, uint plyCount,
     }
 
     if (IsHtmlFormat()  &&  VarDepth == 0) { tb->PrintString ("<b>"); }
+    //if (IsQTextBrowserFormat()  &&  VarDepth == 0) { tb->PrintString ("<b>"); }
     if ((PgnStyle & PGN_STYLE_COLUMN)  &&  VarDepth == 0) {
         tb->PrintString (startTable);
     }
@@ -2253,6 +2257,25 @@ Game::WriteMoveList (TextBuffer *tb, uint plyCount,
             tb->PrintInt (NumMovesPrinted);
             tb->PrintChar ('>');
         }
+        // Print move number and link anchor for QTextBrowser
+        if (IsQTextBrowserFormat() && VarDepth == 0) {
+            tb->PrintString ("<b>");
+        }
+        if (IsQTextBrowserFormat()) {
+            if(VarDepth == 0) {
+                tb->PrintString("<a name=\"");
+            } else {
+                tb->PrintString("<a name=\"");
+            }
+            tb->PrintInt(NumMovesPrinted);
+            tb->PrintString("\" href=\"#");
+            tb->PrintInt(NumMovesPrinted);
+            if(VarDepth == 0) {
+                tb->PrintString("\">");
+            } else {
+                tb->PrintString("\">");
+            }
+        }
         if (printMoveNum  ||  (CurrentPos->GetToMove() == WHITE)) {
             if ((PgnStyle & PGN_STYLE_COLUMN)  &&  VarDepth == 0) {
                 tb->PrintString (startColumn);
@@ -2323,6 +2346,10 @@ Game::WriteMoveList (TextBuffer *tb, uint plyCount,
         if (IsColorFormat()) {
             tb->PrintString ("</m>");
         }
+        if (IsQTextBrowserFormat() && VarDepth == 0) {
+            tb->PrintString ("</b>");
+        }
+
         }
 
         bool endedColumn = false;
@@ -2333,6 +2360,9 @@ Game::WriteMoveList (TextBuffer *tb, uint plyCount,
             bool printDiagramHere = false;
             if (IsColorFormat()  &&  m->nagCount > 0) {
                 tb->PrintString ("<nag>");
+            }
+            if (IsQTextBrowserFormat() && VarDepth == 0) {
+                tb->PrintString ("<b>");
             }
             for (uint i = 0; i < (uint) m->nagCount; i++) {
                 char temp[20];
@@ -2356,6 +2386,9 @@ Game::WriteMoveList (TextBuffer *tb, uint plyCount,
             }
             if (IsColorFormat()  &&  m->nagCount > 0) {
                 tb->PrintString ("</nag>");
+            }
+            if (IsQTextBrowserFormat() && VarDepth == 0) {
+                tb->PrintString ("</b>");
             }
             tb->PrintSpace();
             colWidth--;
@@ -2527,13 +2560,17 @@ Game::WriteMoveList (TextBuffer *tb, uint plyCount,
                             case 2: tb->PrintString ("<ip3>"); break;
                             case 3: tb->PrintString ("<ip4>"); break;
                         }
-                    } else {
+                    } //else if(IsQTextBrowserFormat()) {
+                      //tb->PrintString("<br>");
+                //    }
+                else {
                         tb->SetIndent (tb->GetIndent() + 4); tb->Indent();
                     }
                 }
                 if (IsHtmlFormat()) {
                     if (VarDepth == 0) { tb->PrintString ("</b><dl><dd>"); }
                 }
+                if (IsQTextBrowserFormat()  &&  VarDepth == 0) { tb->PrintString ("<br>&nbsp;&nbsp;"); }
                 if (IsLatexFormat()  &&  VarDepth == 0) {
                     if (PgnStyle & PGN_STYLE_INDENT_VARS) {
                         tb->PrintLine ("\\begin{variation}");
@@ -2591,6 +2628,7 @@ Game::WriteMoveList (TextBuffer *tb, uint plyCount,
             if (IsColorFormat()  &&  VarDepth == 0) {
                 tb->PrintString ("</var>");
             }
+            if (IsQTextBrowserFormat()  &&  VarDepth == 0) { tb->PrintString ("<br>"); }
         }
         if ((PgnStyle & PGN_STYLE_COLUMN)  &&  VarDepth == 0) {
             if (endedColumn) { tb->PrintString(startTable); }
@@ -2773,6 +2811,9 @@ Game::WritePGN (TextBuffer * tb, uint stopLocation)
                 tb->PrintString (temp);
             }
         }
+    } else if(IsQTextBrowserFormat()) {
+        // for QTextBrowserFormat we don't want the header at all
+        // (instead put header in QLabel above QTextBrowser)
     } else {
         // Print tags in standard PGN format, one per line:
         // Note: we want no line-wrapping when printing PGN tags
