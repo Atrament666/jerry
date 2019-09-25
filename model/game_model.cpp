@@ -83,6 +83,7 @@ GameModel::GameModel(QObject *parent) :
     this->game->AddNag(scid::NAG_Unclear);
     this->game->SetMoveComment(com);
 
+    this->game->MoveToLocationInPGN(7);
 
 
     this->colorStyle = new ColorStyle(ResourceFinder::getPath());

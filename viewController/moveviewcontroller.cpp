@@ -370,6 +370,7 @@ void MoveViewController::onForwardClick() {
 
 void MoveViewController::onScrollBack() {
     //this->gameModel->getGame()->goToParent();
+    //this->gameModel->getGame()->MoveBackup();
     this->gameModel->triggerStateChange();
 }
 
@@ -390,6 +391,11 @@ void MoveViewController::onSeekToEnd() {
 
 void MoveViewController::onBackwardClick() {
     //this->gameModel->getGame()->goToParent();
+    scid::errorT err = this->gameModel->getGame()->MoveBackup();
+    qDebug() << "error: " << err;
+    uint pos = this->gameModel->getGame()->GetPgnOffset();
+    qDebug() << "got pos (on backward): " << pos;
+    this->gameModel->getGame()->MoveToLocationInPGN(pos);
     this->gameModel->triggerStateChange();
 }
 
@@ -422,6 +428,7 @@ void MoveViewController::onStateChange() {
     //g->AddPgnStyle(PGN_STYLE_SHORT_HEADER);
     g->AddPgnStyle(PGN_STYLE_VARS);
     g->AddPgnStyle(PGN_STYLE_INDENT_VARS);
+    g->AddPgnStyle(PGN_STYLE_SYMBOLS);
     auto ret = g->WriteToPGN();
     //std::cout << "game.WriteToPGN(), first :" << ret.first << std::endl;
     this->document->clear();
@@ -430,6 +437,11 @@ void MoveViewController::onStateChange() {
     qDebug() << "back to html:";
     qDebug() << this->document->toHtml();
     qDebug() << ret.first;
+
+    scid::uint pos = g->GetPgnOffset();
+    qDebug() << "pos: " << pos;
+    this->selectAndMarkAnchor(QString("#").append(QString::number((pos))));
+
     this->setFocus();
 
     //this->update();
